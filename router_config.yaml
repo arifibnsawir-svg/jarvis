@@ -1,0 +1,130 @@
+# =====================================================================
+# JARVIS ROUTER CONFIG  (arsi engine)
+# 9 ROUTER BRANCHES -> 5 COMBOS (+ R5 deterministic, no LLM)
+# Sumber kebenaran routing. Combo HARUS ditranskrip ke 9router Dashboard
+# (toggle Round Robin = setting dashboard). call_params hidup di Hermes.
+# Semua model = VERIFIED PASS dari deep-test 16 provider (kecuali vision: UNVERIFIED).
+# =====================================================================
+
+meta:
+  router_endpoint: "http://arif-aspire-5551:20128/v1"
+  router_key_env: "ROUTER_KEY"
+  version: 1
+
+# --------------------- LAYER 1: embedding (lokal, Acer CPU) ---------------------
+layer1_embedding:
+  model: "paraphrase-multilingual-MiniLM-L12-v2"   # WAJIB multilingual (bukan BGE-en)
+  backend: "fastembed"
+  dim: 384
+  threshold: 0.75        # cosine absolut minimum
+  margin_min: 0.10       # jarak top1 - top2 (anti-ambiguous)
+  on_ambiguous: "escalate_layer2"   # < threshold/margin -> LLM classifier
+
+# --------------------- LAYER 0: rule fast-path (0ms) ---------------------
+layer0_rules:
+  commands:
+    "/audit": R5_gate ; "/qa": R5_gate ; "/render": R5_gate
+    "/code": R2_coding ; "/fix": R2_coding
+    "/extract": R3_extract ; "/json": R3_extract
+    "/write": R4_writer ; "/draft": R4_writer
+    "/digest": R7_digest ; "/recall": R9_memory
+  attachment_map:
+    image: R8_vision        # png/jpg/jpeg/webp/gif
+    document: R7_digest      # pdf/docx/txt/md
+  regex_signals:
+    R2_coding: "```|traceback|stacktrace|exception|errno|segfault"
+    R3_extract: "^\\s*[\\{\\[].{40,}"     # blob JSON/array mentah
+
+# --------------------- 9 ROUTER BRANCHES ---------------------
+# tiap branch -> combo + ARSI stage + hint output_target + call params
+branches:
+  R1_triage:   { combo: jarvis-fast,     arsi: AUDIT,     target_hint: any,             params: {temperature: 0.3, max_tokens: 256} }
+  R2_coding:   { combo: jarvis-coder,    arsi: RANCANG,   target_hint: code_patching,   params: {temperature: 0.1, max_tokens: 4096} }
+  R3_extract:  { combo: jarvis-reason,   arsi: AUDIT,     target_hint: internal_research, params: {temperature: 0.0, response_format: json_schema, max_tokens: 2048} }
+  R4_writer:   { combo: jarvis-longform, arsi: RANCANG,   target_hint: public_social,   params: {temperature: 0.6, max_tokens: 4096} }
+  R5_gate:     { combo: NONE_DETERMINISTIC, arsi: ITERASI, target_hint: any,            engine: "guardian.py (Python murni, NO LLM)" }
+  R6_audit:    { combo: jarvis-reason,   arsi: SISTEMASI, target_hint: internal_research, params: {temperature: 0.2, mode: thinking, max_tokens: 3072} }
+  R7_digest:   { combo: jarvis-longform, arsi: AUDIT,     target_hint: internal_research, params: {temperature: 0.2, max_tokens: 4096} }
+  R8_vision:   { combo: jarvis-vision,   arsi: AUDIT,     target_hint: internal_research, params: {temperature: 0.2, max_tokens: 2048} }
+  R9_memory:   { combo: jarvis-fast,     arsi: AUDIT,     target_hint: internal_research, params: {temperature: 0.0, max_tokens: 512}, retrieval: sqlite-vec }
+
+# --------------------- COMBOS (transkrip ke 9router Dashboard) ---------------------
+combos:
+
+  jarvis-fast:
+    round_robin: true          # ON — model setara, load-balance
+    note: "R1 triage, R9 synth, L2 classifier. Speed-first, no subscription."
+    models:
+      - groq/llama-3.1-8b-instant
+      - qwen/qwen-flash
+      - qwen/qwen3-30b-a3b-instruct-2507
+      - nv/meta/llama-3.1-8b-instruct
+      - nv2/meta/llama-3.1-8b-instruct
+      - cf/@cf/meta/llama-3.1-8b-instruct-fp8-fast
+      - mistral/ministral-8b-latest
+      - groq/meta-llama/llama-4-scout-17b-16e-instruct
+
+  jarvis-coder:
+    round_robin: false         # OFF — priority fallback (kepastian, bukan gacha)
+    note: "R2. Hybrid: subscription top, free workhorse mid."
+    models:                    # urutan = prioritas
+      - cx/gpt-5.4
+      - qwen/qwen3-coder-480b-a35b-instruct
+      - cerebras/zai-glm-4.7
+      - mistral/codestral-latest
+      - kr/qwen3-coder-next
+      - qwen/qwen3-coder-plus
+      - cf/@cf/qwen/qwen2.5-coder-32b-instruct
+      - mistral/devstral-medium-latest
+      - groq/qwen/qwen3-32b
+      - openrouter/cohere/north-mini-code:free
+
+  jarvis-reason:
+    round_robin: false         # OFF — anti-halusinasi, model terbaik dulu
+    note: "R3 extract (temp=0+json) + R6 audit (thinking). Quality-first."
+    models:
+      - kr/claude-sonnet-4.5-thinking
+      - qwen/qwen3-235b-a22b-thinking-2507
+      - cx/gpt-5.5
+      - qwen/qwen3-235b-a22b-instruct-2507
+      - groq/llama-3.3-70b-versatile
+      - mistral/mistral-large-latest
+      - qwen/qwen3-next-80b-a3b-thinking
+      - cf/@cf/qwen/qwq-32b
+      - cf/@cf/deepseek-ai/deepseek-r1-distill-qwen-32b
+      - openrouter/openai/gpt-oss-120b:free
+
+  jarvis-longform:
+    round_robin: false         # OFF — kualitas draf gak diundi
+    note: "R4 writer + R7 digest. Fluency + context besar."
+    models:
+      - kr/claude-sonnet-4.5
+      - qwen/qwen3-max
+      - gemini/gemini-3-flash-preview
+      - mistral/mistral-large-latest
+      - kr/glm-5
+      - smb/DeepSeek-V3.2
+      - qwen/qwen3.5-plus
+      - nv/mistralai/mistral-large-3-675b-instruct-2512
+      - cf/@cf/zai-org/glm-5.2
+
+  jarvis-vision:
+    round_robin: false
+    verified: false            # ⚠️ BELUM ditest — verifikasi /v1/models/image-to-text dulu
+    note: "R8. Test endpoint vision sebelum produksi."
+    models:
+      - gemini/gemini-3-flash-preview
+      - kr/claude-sonnet-4.5
+      - mistral/pixtral-large-latest
+      - nv/meta/llama-3.2-90b-vision-instruct
+
+# --------------------- R5 GATE (eksplisit deterministic) ---------------------
+deterministic_gate:
+  branch: R5_gate
+  engine: guardian
+  llm: false                   # NO LLM. Authority "DONE" cuma di sini.
+  module: "jarvis/guardian/guardian.py"
+  rules_config: "jarvis/guardian/brand_rules.json"
+  saklar_konteks:
+    brand_enforced_targets: [public_social, book_draft]   # filter brand NYALA
+    bypass_targets: [internal_research, code_patching]     # cek measurable SAJA

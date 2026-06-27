@@ -1,0 +1,79 @@
+{
+  "_comment": "Source of truth untuk 4 combo 9router. Transkrip manual ke Dashboard -> Combos. Semua model di sini sudah VERIFIED PASS dari deep-test 16 provider.",
+  "_router_endpoint": "http://arif-aspire-5551:20128/v1",
+  "_mechanics": "Combo = sequential auto-fallback (model #1 sampai gagal -> #2 -> ...). Bukan parallel fusion. Key-rotation terjadi di dalam tiap provider.",
+  "combos": {
+    "jarvis-fast": {
+      "purpose": "R1 triage, R9 synthesizer, Layer-2 classifier fallback",
+      "strategy": "speed-first, no subscription",
+      "models": [
+        "groq/llama-3.1-8b-instant",
+        "qwen/qwen-flash",
+        "qwen/qwen3-30b-a3b-instruct-2507",
+        "nv/meta/llama-3.1-8b-instruct",
+        "nv2/meta/llama-3.1-8b-instruct",
+        "cf/@cf/meta/llama-3.1-8b-instruct-fp8-fast",
+        "mistral/ministral-8b-latest",
+        "groq/meta-llama/llama-4-scout-17b-16e-instruct"
+      ]
+    },
+    "jarvis-coder": {
+      "purpose": "R2 coding & CLI execution, patching",
+      "strategy": "hybrid (subscription top, free workhorse mid)",
+      "models": [
+        "cx/gpt-5.4",
+        "qwen/qwen3-coder-480b-a35b-instruct",
+        "cerebras/zai-glm-4.7",
+        "mistral/codestral-latest",
+        "kr/qwen3-coder-next",
+        "qwen/qwen3-coder-plus",
+        "cf/@cf/qwen/qwen2.5-coder-32b-instruct",
+        "mistral/devstral-medium-latest",
+        "groq/qwen/qwen3-32b",
+        "openrouter/cohere/north-mini-code:free"
+      ]
+    },
+    "jarvis-reason": {
+      "purpose": "R3 extract->JSON (PIPA1) + R6 audit/NLI (PIPA3)",
+      "strategy": "quality-first, anti-hallucination. R3 calls temp=0+json_schema, R6 calls thinking mode.",
+      "models": [
+        "kr/claude-sonnet-4.5-thinking",
+        "qwen/qwen3-235b-a22b-thinking-2507",
+        "cx/gpt-5.5",
+        "qwen/qwen3-235b-a22b-instruct-2507",
+        "groq/llama-3.3-70b-versatile",
+        "mistral/mistral-large-latest",
+        "qwen/qwen3-next-80b-a3b-thinking",
+        "cf/@cf/qwen/qwq-32b",
+        "cf/@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",
+        "openrouter/openai/gpt-oss-120b:free"
+      ]
+    },
+    "jarvis-longform": {
+      "purpose": "R4 writer (PIPA2) + R7 long-context digest",
+      "strategy": "fluency + big context. Claude via Kiro = top quality unlimited.",
+      "models": [
+        "kr/claude-sonnet-4.5",
+        "qwen/qwen3-max",
+        "gemini/gemini-3-flash-preview",
+        "mistral/mistral-large-latest",
+        "kr/glm-5",
+        "smb/DeepSeek-V3.2",
+        "qwen/qwen3.5-plus",
+        "nv/mistralai/mistral-large-3-675b-instruct-2512",
+        "cf/@cf/zai-org/glm-5.2"
+      ]
+    }
+  },
+  "branch_to_combo": {
+    "R1_triage": "jarvis-fast",
+    "R2_coding": "jarvis-coder",
+    "R3_extract": "jarvis-reason",
+    "R4_writer": "jarvis-longform",
+    "R5_gate": "NONE_deterministic_python",
+    "R6_audit": "jarvis-reason",
+    "R7_digest": "jarvis-longform",
+    "R8_vision": "DEFERRED_needs_vision_endpoint_test",
+    "R9_memory": "jarvis-fast"
+  }
+}

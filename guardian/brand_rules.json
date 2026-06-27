@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "_note": "Config GUARDIAN. Toggle enabled:true/false tanpa sentuh kode. Setelah buku rilis, set SACRED_FRAMEWORK & angka sakral ke enabled:false.",
+
+  "brand_enforced_targets": ["public_social", "book_draft"],
+
+  "sacred_ip": {
+    "enabled": true,
+    "rules": [
+      {"code": "SACRED_847",      "pattern": "\\b847(?:[.\\s]?000|\\s?rb|k|\\s?ribu)?\\b", "severity": "CRITICAL", "enabled": true},
+      {"code": "SACRED_347",      "pattern": "\\b347(?:\\s?prompt)?\\b",                    "severity": "CRITICAL", "enabled": true},
+      {"code": "SACRED_FEB2024",  "pattern": "februari\\s*2024",                            "severity": "CRITICAL", "enabled": true},
+      {"code": "SACRED_340PCT",   "pattern": "\\b340\\s?(?:%|persen)\\b",                   "severity": "CRITICAL", "enabled": true},
+      {"code": "SACRED_FRAMEWORK","pattern": "neuro[\\s\\-]?arc|a\\.?\\s?r\\.?\\s?s\\.?\\s?i\\.?", "severity": "CRITICAL", "enabled": true, "note": "MATIKAN saat buku rilis biar bisa reveal framework"}
+    ]
+  },
+
+  "signature": {
+    "enabled": true,
+    "min_required": 1,
+    "phrases": [
+      "Sistem bukan tools",
+      "Representasi > Kecanggihan",
+      "Cara berpikir, bukan tools",
+      "Bangun sistem, bukan kejar hype"
+    ]
+  },
+
+  "anti_hype": {
+    "enabled": true,
+    "always": ["BURUAN", "RAHASIA", "BONGKAR", "VIRAL"],
+    "context": {
+      "WAJIB":   {"whitelist": ["wajib diisi", "wajib pajak", "wajib lapor", "wajib militer", "wajib belajar"]},
+      "TINGGAL": {"whitelist": ["tinggal di", "tinggal kelas", "tempat tinggal", "tinggal landas"]}
+    },
+    "hype_action_words": ["beli", "klik", "order", "daftar", "share", "follow", "dm", "checkout", "join", "subscribe"]
+  },
+
+  "voice": {
+    "enabled": true,
+    "informal_pronouns": ["lo", "lu", "elo", "elu", "gue", "gua", "gw"]
+  },
+
+  "emoji": {
+    "enabled": true,
+    "max_per_paragraph": 3,
+    "alay": ["🤣", "😜", "🤪", "🙏"]
+  }
+}
