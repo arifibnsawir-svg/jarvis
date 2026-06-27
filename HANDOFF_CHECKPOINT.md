@@ -237,3 +237,36 @@ _Ditulis Kiro sesi grounding-2. Nge-overtake beberapa poin di atas. Sumber keben
 - Perkakas: `~/.hermes/scripts/`. Mata: `~/.hermes/logs/{gateway,agent,errors}.log`.
 - Memori: `~/.hermes/state/ARIF_STACK_EVENT_LOG.md`.
 - Safety invariants = rantai Fable: original never modified, service/config BLOCKED by gate, per-run isolation, rollback-ready.
+
+
+### 12.9 ALWAYS-ON DEPLOYED & VERIFIED (2026-06-27 ~22:45 WIB) — DONE
+Status: neuro-arc + arsi-doctrine = ALWAYS-ON, TERBUKTI aktif di session baru tanpa restart.
+
+MEKANISME (penting, beda dari dugaan awal):
+- `enabled_default_skills` di config.yaml = KNOB MATI (0 referensi di seluruh .py hermes-agent). 
+  Sempat di-edit, lalu DI-REVERT balik ke `['smart-router']` (housekeeping). JANGAN pakai key ini buat always-on.
+- Always-on SEJATI Hermes = direktif behavioral di `~/.hermes/memories/USER.md` yang di-INJECT ke 
+  system prompt tiap turn (pola sama dgn guard existing: casual-chat-mode L512, evidence-claim-status-guard L572).
+- conversation_loop.py: system prompt = "territory Hermes", di-cache antar-turn TAPI dibangun per-session 
+  -> session BARU langsung kebaca, gak perlu restart/reload.
+
+YANG DILAKUKAN:
+- Append 2 direktif ke USER.md (L618 neuro-arc, L619 arsi-doctrine) via scripts/deploy_alwayson.sh (idempotent, auto-backup).
+- Skill full ada di ~/.hermes/skills/{neuro-arc,arsi-doctrine}/SKILL.md (deployed, lolos _validate_frontmatter, 
+  on-demand depth). neuro-arc 3639B/10cebf13. arsi-doctrine 3806B/c465c25f (sha setelah fix YAML quote).
+
+BUKTI (session baru):
+- TES1 quote: Jarvis ngutip PERSIS dua direktif -> ada di system prompt.
+- TES2 behavioral (task under-specified): Jarvis struktur dulu (nanya ukuran/PIN-POINT FACTS), audit-first, 
+  gak self-declare DONE -> NEURO-ARC + ARSI(Audit) + authority aktif.
+
+BELUM TERBUKTI: loop ARSI penuh (Iterasi->gate end-to-end) belum diuji sampai artefak kelar.
+
+ROLLBACK: cp ~/.hermes/memories/USER.md.bak.20260627_224419 ~/.hermes/memories/USER.md
+DEPLOY ULANG / IDEMPOTEN: cd ~/jarvis && git pull && bash scripts/deploy_alwayson.sh
+
+LESSON OPERASIONAL (kepakai sepanjang sesi ini):
+- Jarvis sering MISREPORT konten file panjang (ngeringkas `cat`), tapi command pendek (ls/grep/sha) raw. 
+  -> verifikasi file panjang via wc -c + sha256, JANGAN percaya "match"/"lengkap" tanpa angka.
+- Jarvis kemungkinan GAK persist cwd antar-command -> pakai PATH ABSOLUT.
+- Paste heredoc panjang via Telegram/SSH-mobile KEPOTONG -> deploy file via git (byte-exact), bukan paste.
