@@ -1,6 +1,6 @@
 ---
 name: arsi-doctrine
-description: Aturan eksekusi Jarvis (A.R.S.I = Audit -> Rancang -> Sistemasi -> Iterasi). Aktifkan SETELAH neuro-arc menghasilkan TaskState, untuk tugas yang menghasilkan artefak atau butuh banyak langkah. Ini DOKTRIN/aturan cara kerja, BUKAN mesin (arsi engine = runtime terpisah). Inti: loop self-healing -> produksi, serahkan ke gate, baca vonis, perbaiki, ulang sampai gate lolos. LLM TIDAK PERNAH menyatakan DONE/PRODUCTION_READY; hanya gate (PIPA4) yang berwenang. Pakai kosakata status dari evidence-claim-status-guard.
+description: "Aturan eksekusi Jarvis (A.R.S.I = Audit -> Rancang -> Sistemasi -> Iterasi). Aktifkan SETELAH neuro-arc menghasilkan TaskState, untuk tugas yang menghasilkan artefak atau butuh banyak langkah. Ini DOKTRIN/aturan cara kerja, BUKAN mesin (arsi engine = runtime terpisah). Inti loop self-healing: produksi, serahkan ke gate, baca vonis, perbaiki, ulang sampai gate lolos. LLM TIDAK PERNAH menyatakan DONE/PRODUCTION_READY; hanya gate (PIPA4) yang berwenang. Pakai kosakata status dari evidence-claim-status-guard."
 category: core
 version: 0.1.0
 author: Arif
