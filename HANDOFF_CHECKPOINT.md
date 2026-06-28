@@ -177,3 +177,109 @@ User lapor beberapa model di dashboard gak jalan. Model BISA stale (deprecate/qu
 - Router key fragment pernah ke-paste di chat (`sk-ef2ad2c...`) → ROTATE kalau belum.
 - `brand_rules.json` isinya sacred IP → repo PRIVATE kalau di-push.
 - Jangan ngakalin moderation Kiro (pernah kena false-positive saat upload screenshot bertubi — pakai teks ringkas, bukan evasion).
+
+
+---
+
+## 12. ADDENDUM SESI 2026-06-27 (lanjutan — keputusan terkunci)
+_Ditulis Kiro sesi grounding-2. Nge-overtake beberapa poin di atas. Sumber kebenaran terbaru._
+
+### 12.1 Status update (nge-overtake Bagian 5b & 7)
+- **Bagian 5b RESOLVED**: kode arsitektur UDAH ke-push ke repo `arifibnsawir-svg/jarvis` (17 file, ke-clone OK). Bukan lagi "perlu push".
+- **Bagian 7 OVERTAKEN**: hook `nli_router` SEKARANG **FIRED** (lapor Jarvis). Dugaan "singleton mismatch" TUMBANG.
+  - Gap REAL pindah ke **media-ingestion**: PDF mendarat di `~/.hermes/cache/documents/` TAPI gak masuk `event.media_urls` (`media=[], doc=None, intent=True`). Bukan masalah hook.
+  - Status: Jalur B (fix media_urls) = DEFER. Belum kebukti sepele (perlu grep run.py:7543-7577 + extractor). Auto-route = nice-to-have, bukan blocker (audit manual PIPA4 jalan).
+- **PIPA4 live** (phase7a/pipa4_review_local.py) ≠ guardian.py repo — by design. guardian.py = prototipe brand-gate; live = gate audit dokumen. Audit buku V4 = NEEDS_STRUCTURE_CLEANUP + NEEDS_EVIDENCE_REVIEW (production_ready=False -> gate nahan = anti-False-READY bekerja).
+
+### 12.2 Terminologi TERKUNCI (jangan dicampur lagi)
+- **A.R.S.I = ATURAN** (doktrin/hukum cara kerja: Audit->Rancang->Sistemasi->Iterasi). Dipatuhi, gak "jalan".
+- **arsi engine = MESIN** (runtime/kode yang MENJALANKAN aturan A.R.S.I di atas TaskState). Punya PID, hidup/mati.
+- **NEURO-ARC = lapis REPRESENTASI** (narasi->entitas->ukuran->relasi->output). Dipakai SEBELUM eksekusi. Output = TaskState. ("ukuran" = dimensi terukur -> jembatan ke assert gate).
+- Urutan: NEURO-ARC (bentuk peta) -> A.R.S.I (aturan nyetir) -> arsi engine (mobil+sopir jalan).
+
+### 12.3 Workflow ADAPTIF (BUKAN paksa-4-pipa)
+- ROUTER nentuin kedalaman (ringan, gak pernah blok):
+  - trivial -> jawab langsung (jarvis-fast), 0 pipa.
+  - riset/brainstorm internal -> mikir bebas, GATE BYPASS (Mythos-mode).
+  - task/artefak -> NEURO-ARC -> ARSI 4-pipa -> GATE PIPA4 (Fable-mode, gate NYALA).
+- Maksa semua lewat 4-pipa = lemot + over-engineering (biang DailyFree dulu). Adaptive = skalain effort ke bobot masalah.
+
+### 12.4 PENEMPATAN LLM (terkunci)
+- LLM ditaro di lapis SOFT: ROUTER-L2 (fallback ambigu; L1 = embedding), NEURO-ARC (ekstrak->TaskState), PIPA1-3 (intake/rancang/tulis), ARSI Iterasi (perbaiki dari feedback gate).
+- LLM **DILARANG** di PIPA4 GATE -> Python deterministik murni. LLM cuma boleh usul `AWAITING_GATE`, vonis DONE ditolak via PermissionError di kode.
+- Prinsip: LLM dilepas LIAR di soft, dirantai NON-LLM di output. = "Fable: buas tapi dirantai".
+
+### 12.5 Pemetaan Fable/Mythos (BELUM TERBUKTI produknya nyata — pola-nya valid)
+- Adaptive thinking always-on = NEURO-ARC + jarvis-reason.
+- Long-horizon autonomy = ARSI loop + workspace habitat + memory persisten.
+- Proactive self-verification = GATE PIPA4 + Iterasi (loop produksi->vonis->perbaiki->re-gate sampai lolos).
+- Classifier + silent fallback = ROUTER + combo priority-fallback.
+- Fable (dirantai) vs Mythos (lepas di lab) = SAKLAR KONTEKS (public=gate ON / internal_research=bypass).
+- NOTE keamanan: bagian "matiin safeguard buat exploit/zero-day/senjata" = TIDAK dibangun. Desain ini gak butuh itu.
+
+### 12.6 VISI: Jarvis = OTAK KEDUA ARIF
+- Implikasi: MEMORI PERSISTEN naik prioritas (otak kedua tanpa ingat = chatbot). 
+  Pakai `~/.hermes/state/ARIF_STACK_EVENT_LOG.md` + memory schema sebagai recall lintas sesi.
+- Skill harus encode CARA MIKIR ARIF (NEURO-ARC/ARSI), bukan generik.
+
+### 12.7 RENCANA SKILL (Jalur A — DNA monster, SOFT, no restart)
+- `neuro-arc`     -> think-first always-on (narasi->struktur->TaskState).
+- `arsi-doctrine` -> patuhi A.R.S.I + LOOP ITERASI self-healing (produksi->gate->perbaiki->ulang sampai lolos).
+- `pipa-routing`  -> router/classifier: scan niat -> pilih jalur -> saklar Fable/Mythos.
+- CATATAN: "arsi engine" BUKAN skill (itu runtime/kode). Skill cuma nanamin ATURAN-nya.
+- Gate PIPA4 = TIDAK disentuh skill (rantai tetap deterministik).
+- BLOCKER mulai nulis: (1) path folder skill (`~/.hermes/skills/`? belum kebukti), (2) 1 template skill existing.
+
+### 12.8 Habitat workspace Jarvis (dikonfirm sesi ini)
+- Lab terkontrol: `~/.hermes/pipelines/pipa4/phase7a/runs/<ts>/` (per-run isolation, original NEVER modified).
+- Tangan: `~/.hermes/outbox/{long_outputs,presentations,spreadsheets,documents}`.
+- Indera: `~/.hermes/cache/{documents,audio_cache,browser_downloads}`.
+- Perkakas: `~/.hermes/scripts/`. Mata: `~/.hermes/logs/{gateway,agent,errors}.log`.
+- Memori: `~/.hermes/state/ARIF_STACK_EVENT_LOG.md`.
+- Safety invariants = rantai Fable: original never modified, service/config BLOCKED by gate, per-run isolation, rollback-ready.
+
+
+### 12.9 ALWAYS-ON DEPLOYED & VERIFIED (2026-06-27 ~22:45 WIB) — DONE
+Status: neuro-arc + arsi-doctrine = ALWAYS-ON, TERBUKTI aktif di session baru tanpa restart.
+
+MEKANISME (penting, beda dari dugaan awal):
+- `enabled_default_skills` di config.yaml = KNOB MATI (0 referensi di seluruh .py hermes-agent). 
+  Sempat di-edit, lalu DI-REVERT balik ke `['smart-router']` (housekeeping). JANGAN pakai key ini buat always-on.
+- Always-on SEJATI Hermes = direktif behavioral di `~/.hermes/memories/USER.md` yang di-INJECT ke 
+  system prompt tiap turn (pola sama dgn guard existing: casual-chat-mode L512, evidence-claim-status-guard L572).
+- conversation_loop.py: system prompt = "territory Hermes", di-cache antar-turn TAPI dibangun per-session 
+  -> session BARU langsung kebaca, gak perlu restart/reload.
+
+YANG DILAKUKAN:
+- Append 2 direktif ke USER.md (L618 neuro-arc, L619 arsi-doctrine) via scripts/deploy_alwayson.sh (idempotent, auto-backup).
+- Skill full ada di ~/.hermes/skills/{neuro-arc,arsi-doctrine}/SKILL.md (deployed, lolos _validate_frontmatter, 
+  on-demand depth). neuro-arc 3639B/10cebf13. arsi-doctrine 3806B/c465c25f (sha setelah fix YAML quote).
+
+BUKTI (session baru):
+- TES1 quote: Jarvis ngutip PERSIS dua direktif -> ada di system prompt.
+- TES2 behavioral (task under-specified): Jarvis struktur dulu (nanya ukuran/PIN-POINT FACTS), audit-first, 
+  gak self-declare DONE -> NEURO-ARC + ARSI(Audit) + authority aktif.
+
+BELUM TERBUKTI: loop ARSI penuh (Iterasi->gate end-to-end) belum diuji sampai artefak kelar.
+
+ROLLBACK: cp ~/.hermes/memories/USER.md.bak.20260627_224419 ~/.hermes/memories/USER.md
+DEPLOY ULANG / IDEMPOTEN: cd ~/jarvis && git pull && bash scripts/deploy_alwayson.sh
+
+LESSON OPERASIONAL (kepakai sepanjang sesi ini):
+- Jarvis sering MISREPORT konten file panjang (ngeringkas `cat`), tapi command pendek (ls/grep/sha) raw. 
+  -> verifikasi file panjang via wc -c + sha256, JANGAN percaya "match"/"lengkap" tanpa angka.
+- Jarvis kemungkinan GAK persist cwd antar-command -> pakai PATH ABSOLUT.
+- Paste heredoc panjang via Telegram/SSH-mobile KEPOTONG -> deploy file via git (byte-exact), bukan paste.
+
+
+### 12.10 PIPA4 GATE AUDIT — VERIFIED SEHAT (2026-06-27) + rencana langkah B
+- PIPA4 = orchestrator (phase7a/pipa4_review_local.py, 234 baris): jalanin phase6a (audit+LLM review) & 
+  phase6c/6d (council) sbg subprocess, lalu aggregate_results merge JSON. production_ready HARDCODE False.
+- synthesize_final (phase6a:131-155) = BUKTI prinsip kepatuh: docstring "deterministic gate is authority, 
+  LLM is advisory". gate_overall=='FAIL' -> final=gate (FAIL), LLM yg bilang READY di-OVERRIDDEN_BY_GATE + 
+  false_ready_risk=HIGH. gate PASS -> LLM cuma boleh downgrade (NEEDS_*). LLM GAK BISA naikin FAIL->READY.
+- VONIS: PIPA4 gate sehat, anti-False-READY solid, JSON/deterministik = otoritas. TIDAK perlu fix korektif.
+- LANGKAH B (opsional, pending): DailyFree ke-hardcode di phase6a:73, phase6c:16, phase6d:35&194, phase7a:104.
+  Rencana swap -> 'jarvis-reason' (combo audit/reasoning) buat naikin kualitas ADVISORY. 
+  PRA-SYARAT: verifikasi guardian_router (~/.hermes/scripts/guardian_router.py) nerima nama combo 'jarvis-reason'.
+- Checkpoint utk Jarvis ditulis ke ~/.hermes/state/ARIF_STACK_EVENT_LOG.md via scripts/log_session_checkpoint.sh.
