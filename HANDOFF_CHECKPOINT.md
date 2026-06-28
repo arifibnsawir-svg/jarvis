@@ -270,3 +270,16 @@ LESSON OPERASIONAL (kepakai sepanjang sesi ini):
   -> verifikasi file panjang via wc -c + sha256, JANGAN percaya "match"/"lengkap" tanpa angka.
 - Jarvis kemungkinan GAK persist cwd antar-command -> pakai PATH ABSOLUT.
 - Paste heredoc panjang via Telegram/SSH-mobile KEPOTONG -> deploy file via git (byte-exact), bukan paste.
+
+
+### 12.10 PIPA4 GATE AUDIT — VERIFIED SEHAT (2026-06-27) + rencana langkah B
+- PIPA4 = orchestrator (phase7a/pipa4_review_local.py, 234 baris): jalanin phase6a (audit+LLM review) & 
+  phase6c/6d (council) sbg subprocess, lalu aggregate_results merge JSON. production_ready HARDCODE False.
+- synthesize_final (phase6a:131-155) = BUKTI prinsip kepatuh: docstring "deterministic gate is authority, 
+  LLM is advisory". gate_overall=='FAIL' -> final=gate (FAIL), LLM yg bilang READY di-OVERRIDDEN_BY_GATE + 
+  false_ready_risk=HIGH. gate PASS -> LLM cuma boleh downgrade (NEEDS_*). LLM GAK BISA naikin FAIL->READY.
+- VONIS: PIPA4 gate sehat, anti-False-READY solid, JSON/deterministik = otoritas. TIDAK perlu fix korektif.
+- LANGKAH B (opsional, pending): DailyFree ke-hardcode di phase6a:73, phase6c:16, phase6d:35&194, phase7a:104.
+  Rencana swap -> 'jarvis-reason' (combo audit/reasoning) buat naikin kualitas ADVISORY. 
+  PRA-SYARAT: verifikasi guardian_router (~/.hermes/scripts/guardian_router.py) nerima nama combo 'jarvis-reason'.
+- Checkpoint utk Jarvis ditulis ke ~/.hermes/state/ARIF_STACK_EVENT_LOG.md via scripts/log_session_checkpoint.sh.
