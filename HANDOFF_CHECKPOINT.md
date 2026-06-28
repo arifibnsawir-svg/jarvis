@@ -283,3 +283,14 @@ LESSON OPERASIONAL (kepakai sepanjang sesi ini):
   Rencana swap -> 'jarvis-reason' (combo audit/reasoning) buat naikin kualitas ADVISORY. 
   PRA-SYARAT: verifikasi guardian_router (~/.hermes/scripts/guardian_router.py) nerima nama combo 'jarvis-reason'.
 - Checkpoint utk Jarvis ditulis ke ~/.hermes/state/ARIF_STACK_EVENT_LOG.md via scripts/log_session_checkpoint.sh.
+
+
+### 12.11 PIPA4 COUNCIL MODEL SWAP -> jarvis-reason (2026-06-29) — DONE & VERIFIED
+- Combo audit `jarvis-reason` (RR-off, model reasoning/thinking) GANTIIN `DailyFree` (50-model RR gacha, maxtok 800) di council PIPA4 (lapis ADVISORY; gate deterministik TIDAK berubah).
+- guardian_router: jarvis-reason didaftarin (COMBO_MODEL_MAP L86 "jarvis-reason":"jarvis-reason", COMBO_TIMEOUTS L102 =150, COMBO_MAX_TOKENS L112 =3000). Guardian (hermes-guardian.service) di-restart biar map kebaca. Backup: guardian_router.py.bak.20260629_005231.
+- Council files di-swap DailyFree->jarvis-reason (5 titik): phase6a:73, phase6c:16, phase6d:35 & 194, phase7a/pipa4_review_local.py:104. Backup tiap file .bak.20260629_013417.
+- VERIFIED: (a) jarvis-reason via Guardian 20129 -> 200 + "43"; (b) call_llm_via_guardian default -> ERR None, OUT 43.
+- CATATAN: enabled_default_skills = DEAD knob (jangan dipakai). always-on lewat USER.md. 
+- CATATAN: jarvis-reason via Guardian agak lambat variabel (fallback chain + ~2000 tok system prompt inject); curl pakai -m>=120. phase6a timeout=120 nampung. OPEN: cek model mati di combo jarvis-reason (re-verify).
+- BELUM TERBUKTI: kualitas council jarvis-reason vs DailyFree di artefak nyata (uji pas audit berikut).
+- ROLLBACK council: cp <file>.bak.20260629_013417 -> file asli (4 file). ROLLBACK guardian_router: cp guardian_router.py.bak.20260629_005231 + restart hermes-guardian.service.
