@@ -187,6 +187,40 @@ def classify_tool(function_name, args):
         return V("AUTO_OK", f"tool internal/low-risk ({name}).")
     return V("NEEDS_APPROVAL", f"tool tak dikenal ({name}) -> konservatif.")
 
+# --- Unified decision schema (selaras dgn guardian_gate v0: command-plane-v0) ---
+# verdict -> (action_class, would_block, requires_approval, requires_backup)
+_VERDICT_TO_CLASS = {
+    "AUTO_OK":          ("SAFE",         False, False, False),
+    "AUTO_OK_W_BACKUP": ("IMPACT_LIGHT", False, False, True),
+    "NEEDS_APPROVAL":   ("IMPACT_HEAVY", True,  True,  False),
+    "REFUSE":           ("DANGER",       True,  False, False),
+}
+
+def to_unified(decision, decision_mode="shadow", tool=None, command=None):
+    """Ubah vonis action-gate -> skema keputusan terpadu (kompatibel guardian_gate v0)."""
+    import datetime
+    v = decision.get("verdict", "NEEDS_APPROVAL")
+    cls, would_block, req_appr, req_backup = _VERDICT_TO_CLASS.get(v, ("AMBIGUOUS", True, True, False))
+    if decision_mode in ("shadow", "mock"):
+        allow = True                      # observe only -- gak pernah blokir
+    else:                                  # live/enforce
+        allow = v in ("AUTO_OK", "AUTO_OK_W_BACKUP")
+    return {
+        "timestamp": datetime.datetime.now().isoformat(),
+        "gate_version": "v1_action",
+        "decision_mode": decision_mode,
+        "tool": tool,
+        "command": command,
+        "verdict": v,
+        "action_class": cls,
+        "reason": decision.get("reason"),
+        "allow_execution": allow,
+        "would_block": would_block,
+        "requires_approval": req_appr,
+        "requires_backup": req_backup,
+        "requires": decision.get("requires", []),
+    }
+
 if __name__ == "__main__":
     cmd = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else sys.stdin.read().strip()
     print(json.dumps(classify_command(cmd), ensure_ascii=False, indent=2))
