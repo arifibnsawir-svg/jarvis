@@ -307,3 +307,48 @@ LESSON OPERASIONAL (kepakai sepanjang sesi ini):
 - BELUM TERBUKTI: behavioral test (gate dikonsultasi di turn percakapan nyata).
 - Deploy ulang/idempoten: cd ~/jarvis && git pull && bash scripts/deploy_action_gate.sh
 - ROLLBACK direktif: cp ~/.hermes/memories/USER.md.bak.<ts> USER.md.
+
+
+### 12.13 RESUME POINT (2026-06-29 ~14:45) — lanjut di SESI BARU dari sini
+> Sesi chat penuh. Ini state lengkap + langkah berikut. Sesi baru: clone repo, baca file ini, lanjut.
+
+#### YANG SUDAH LIVE & TERBUKTI (hari ini):
+- Skills always-on: neuro-arc + arsi-doctrine (via USER.md L618/619). Verified.
+- Council PIPA4: DailyFree -> jarvis-reason (5 file council + guardian_router map). Verified (served claude-sonnet-4.5-thinking).
+- Action-gate v1 (deterministik classifier + mistake-memory LESSONS.md): deployed, self-test 10/10, behavioral PASS.
+- Repo arifibnsawir-svg/jarvis (branch main) = sumber kebenaran. Semua script di scripts/, gate di action_gate/.
+
+#### ACTION-GATE v2 (IN-PROGRESS — INI YANG DILANJUT):
+Tujuan: enforce gate di LAPIS EKSEKUSI tool (gak bisa bypass). Fase: shadow -> mock -> live.
+- Sisi software SIAP & teruji: action_gate/action_gate.py (classify_command + classify_tool + to_unified),
+  action_gate/gate_hook.py (gate_tool, mode off|shadow|mock|live, default shadow, log ke ~/.hermes/action_gate/decisions.jsonl).
+  Skema SELARAS guardian_gate v0 (SAFE/IMPACT_LIGHT/IMPACT_HEAVY/DANGER/AMBIGUOUS).
+- Deployed di Acer: ~/.hermes/action_gate/ (semua file). Module TERBUKTI jalan di venv (manual test bikin decisions.jsonl).
+- WIRING SALAH TEMPAT (harus dibenerin): patch ada di ~/.hermes/hermes-agent/agent/tool_executor.py:317-324 
+  (di execute_tool_calls_CONCURRENT) -> CUMA firing buat multi-tool, TIDAK kena single/sequential. 
+  Backup: tool_executor.py.bak.20260629_142400. Patch ini HARMLESS (shadow, gak blokir) tapi gak guna -> COPOT.
+- CHOKEPOINT SEJATI ketemu: _invoke_tool (run_agent.py:4814) = FORWARDER ke 
+  **agent/agent_runtime_helpers.py::invoke_tool()**. SEMUA tool (concurrent _run_tool + sequential) lewat sini.
+
+#### LANGKAH BERIKUT (urut, sesi baru):
+1. RESTORE tool_executor.py dari backup: cp ~/.hermes/hermes-agent/agent/tool_executor.py.bak.20260629_142400 ~/.hermes/hermes-agent/agent/tool_executor.py
+2. BACA chokepoint: sed -n '1,60p' (cari def invoke_tool) di ~/.hermes/hermes-agent/agent/agent_runtime_helpers.py 
+   -> liat signature invoke_tool(agent/self, function_name, function_args, ...) + apa yg di-RETURN (buat block-path live).
+3. PATCH invoke_tool di AWAL: sisip hook gate_tool (shadow=log+proceed; live=return blocked-result). 
+   Pola import: sys.path.insert ~/.hermes/action_gate ; from gate_hook import gate_tool ; except: pass (fail-open shadow).
+4. py_compile agent_runtime_helpers.py -> auto-restore kalau gagal.
+5. RESTART gateway (BUTUH GO Arif, ~210s tergantung combo) -> mode default shadow.
+6. VERIFY: Telegram kasih Jarvis tugas pakai terminal tool -> tail ~/.hermes/action_gate/decisions.jsonl HARUS keisi 
+   (decision_mode:shadow, allow_execution:true walau action_class DANGER).
+7. Observe shadow beberapa hari -> kalau klasifikasi bener (gak false-block) -> set ACTION_GATE_MODE=live di env gateway -> enforce.
+
+#### MEKANISME PENTING (jangan lupa):
+- Gateway load tool_executor/run_agent dari ~/.hermes/hermes-agent/ (BUKAN venv site-packages) -> patch source = kepake. (terverifikasi via t.__file__)
+- Restart gateway cepet/lambat tergantung kecepatan combo nge-drain request in-flight (combo bersih = cepet). 210s = batas atas, bukan default.
+- guardian_gate v0 (command-plane-v0, slash commands) = SHADOW jalan, KOMPLEMENTER (beda chokepoint), JANGAN diutak-atik.
+- KILL-SWITCH: ACTION_GATE_MODE=off di env gateway. ROLLBACK: restore .bak + restart.
+
+#### TIER ATURAN ACTION-GATE (di action_gate_rules.json, udah final di-approve Arif):
+- git push main non-force=AUTO; force-push main=NEEDS_APPROVAL; restart protected svc=AUTO_OK_W_BACKUP(+healthcheck+rollback);
+  modify/delete protected paths=NEEDS_APPROVAL; rm protected/tamper-safety/exfil-secret=REFUSE; unknown=NEEDS_APPROVAL.
+- Mistake-memory: auto-log gagal/refuse/rollback/koreksi ke LESSONS.md; promosi jadi aturan = review Arif (anti skill-rot).
