@@ -352,3 +352,32 @@ Tujuan: enforce gate di LAPIS EKSEKUSI tool (gak bisa bypass). Fase: shadow -> m
 - git push main non-force=AUTO; force-push main=NEEDS_APPROVAL; restart protected svc=AUTO_OK_W_BACKUP(+healthcheck+rollback);
   modify/delete protected paths=NEEDS_APPROVAL; rm protected/tamper-safety/exfil-secret=REFUSE; unknown=NEEDS_APPROVAL.
 - Mistake-memory: auto-log gagal/refuse/rollback/koreksi ke LESSONS.md; promosi jadi aturan = review Arif (anti skill-rot).
+
+
+
+### 12.14 ACTION-GATE v2 — WIRING LIVE DI SHADOW (2026-06-29 ~15:57 WIB) — DONE (shadow), belum enforce
+> Nge-overtake 12.13 "ACTION-GATE v2 IN-PROGRESS". Wiring ke chokepoint eksekusi tool SELESAI di mode shadow.
+
+#### PENDEKATAN FINAL (berubah dari rencana 12.13):
+- BUKAN patch core. Pakai **PLUGIN `action_gate_v2`** (hook `pre_tool_call`).
+- `tool_executor.py` di-RESTORE ke CLEAN (patch salah-tempat dicopot; sha256 `50da34d16e2cb790df5d3c3d66fa2a00f18316eee182c79e6d0ecfb424590a99`).
+- Kenapa plugin menang: `get_pre_tool_call_block_message()` dipanggil di SEMUA jalur tool — concurrent `tool_executor.py:274`, sequential `tool_executor.py:749`, `invoke_tool` `agent_runtime_helpers.py:1634` → coverage PENUH tanpa nyentuh core. `pre_tool_call` ada di `VALID_HOOKS` (plugins.py:129).
+
+#### FILE (repo, branch `feat/action-gate-v2-plugin`, PR #2):
+- `plugins/action_gate_v2/plugin.yaml` + `__init__.py` = adapter tipis: `pre_tool_call(tool_name,args)` -> `~/.hermes/action_gate/gate_hook.gate_tool(...)`. shadow/mock -> return None (observe). live -> `{"action":"block"}` kalau NEEDS_APPROVAL/REFUSE. FAIL-OPEN di shadow.
+- `scripts/deploy_action_gate_v2_plugin.sh` = deploy idempotent (sinkron engine + copy plugin + py_compile + smoke-test + ENABLE di config.yaml). TIDAK restart.
+
+#### ROOT CAUSE plugin gak load (pertama kali) + FIX:
+- Discovery = **OPT-IN** via `config.yaml` key `plugins.enabled` (plugins.py:1174-1178: enabled=False -> register() gak jalan). Plugin baru WAJIB didaftarin.
+- FIX: tambah `action_gate_v2` ke `plugins.enabled` (deploy script step [5], idempotent, +backup config.yaml.bak.*, +YAML sanity check). 
+
+#### BUKTI LIVE (shadow):
+- Restart 15:56 (PID 465085, port 9119 hidup). Log: "Plugin action_gate_v2 registered hook: pre_tool_call". Discovery: 41 found, 34 enabled.
+- `~/.hermes/action_gate/decisions.jsonl` nambah entri REAL dari tool-call Jarvis: read-only -> AUTO_OK/SAFE; `systemctl restart` -> AUTO_OK_W_BACKUP; protected path -> NEEDS_APPROVAL. SEMUA `decision_mode:shadow`, `allow_execution:true` (observe-only, zero blocking).
+
+#### STATUS & NEXT:
+- STATUS: shadow OBSERVE-ONLY LIVE. Zero production impact. BELUM enforce.
+- BELUM TERBUKTI: akurasi klasifikasi di tugas NYATA & BERAGAM (sample baru ~13 entri, mayoritas command infra sendiri). Sebelum live: pastikan gak false-block kerja legit (nulis ke outbox/workspace, edit file biasa).
+- NEXT (urut): (1) observe shadow beberapa hari di tugas beragam; (2) opsional dry-run accuracy sweep via `python3 ~/.hermes/action_gate/action_gate.py "<cmd>"` (klasifikasi murni, TANPA eksekusi); (3) baru `ACTION_GATE_MODE=live` di env gateway + restart buat enforce.
+- KILL-SWITCH: `ACTION_GATE_MODE=off`. ROLLBACK plugin: `rm -rf ~/.hermes/plugins/action_gate_v2` + restart. ROLLBACK config: `cp ~/.hermes/config.yaml.bak.<ts> ~/.hermes/config.yaml`.
+- ANTI-FALSE-READY: "shadow live" != "DONE/enforce". Naik live butuh bukti shadow bersih + GO Arif.
