@@ -404,3 +404,14 @@ Tujuan: enforce gate di LAPIS EKSEKUSI tool (gak bisa bypass). Fase: shadow -> m
 3. FRICTION NYATA: kumpulin trafik shadow ORGANIK (bukan command diagnostik) bbrp hari -> ukur % NEEDS_APPROVAL pada kerja legit -> tuning dari DATA, bukan tebakan.
 
 #### KEPUTUSAN: tetap SHADOW. Live cuda setelah (1) diputuskan, friction organik terukur OK, dan GO Arif.
+
+
+
+### 12.16 LESSON: VERIFY LIVENESS GATE != PORT 9119 (2026-06-29 ~16:55) + shadow final CONFIRMED
+- KOREKSI asumsi Bagian 1: port 9119 = proses **DASHBOARD** (`hermes dashboard --port 9119`, PID lama, hidup sejak boot). Proses **GATEWAY messaging** (`python -m hermes_cli.main gateway run`) = PROSES TERPISAH, ini yg restart pas reload plugin & TEMPAT action-gate hook fire.
+- JEBAKAN: cek `ss -ltnp | grep 9119` -> nunjukin PID dashboard, BUKAN gateway. PID listener 9119 beda dari PID yg nge-load plugin = NORMAL (dua proses beda), bukan error.
+- CARA VERIFY GATE LIVE yg BENAR (behavioral, anti-bingung-PID):
+  - proses gateway: `pgrep -af "hermes_cli.main gateway run"`.
+  - bukti engine action-gate kepake di proses yg melayani: `grep -c "majemuk" ~/.hermes/action_gate/decisions.jsonl` + cek timestamp entri > waktu restart. Marker `[majemuk]` cuma diproduksi engine compound-aware -> bukti ruleset final aktif.
+- STATUS FINAL (terbukti): ruleset action-gate final (READ-list tuned + redirect-fix + compound-aware) AKTIF di gateway PID 466207 sejak 16:51. Shadow, allow_execution:true semua. 4 entri `[majemuk]` post-restart = bukti behavioral.
+- PARKIR: kumpulin trafik ORGANIK bbrp hari -> baca distribusi -> whitelist data-driven -> keputusan interpreter -> baru live (GO Arif).
