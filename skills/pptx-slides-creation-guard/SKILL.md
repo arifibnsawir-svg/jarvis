@@ -47,7 +47,8 @@ dengan textbox + warna default. SELALU lewat renderer house design-system:
      ]
    }
    ```
-4. **Aturan isi slide:** maksimal ~5 bullet per slide; bullet ringkas; pakai pola "Lead: detail"
+4. **Layout & preset tersedia (render_deck v2):** layout = cover | section (pakai "number") | bullets | two_col | big_stat (pakai "stats":[{value,label,note}]) | quote (quote+attribution) | timeline (pakai "phases":[{when,title,desc}]) | image | closing (subtitle+contacts). Preset (spec["preset"]) = academic (default, serif scholarly) | business (modern) | dark. Engine ini "berkreasi tanpa template" - selera desain sudah di-encode (palet, tipografi, grid, footer+nomor halaman).
+5. **Aturan isi slide:** maksimal ~5 bullet per slide; bullet ringkas; pakai pola "Lead: detail"
    biar kata kunci ke-bold otomatis; pakai layout `section` sebagai pembatas bab; `two_col` untuk
    perbandingan; `closing` untuk penutup. Gunakan variasi layout, jangan semua `bullets`.
 5. **Gambar:** hanya via `{"layout":"image","image_path":"..."}` dengan file yang BENAR-BENAR ADA
