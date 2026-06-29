@@ -149,6 +149,44 @@ def assert_allowed(cmd, context="default"):
         raise PermissionError(f"ACTION-GATE REFUSE: {r['reason']} :: {cmd}")
     return r
 
+# --- Tool-call interface (buat wiring ke tool_executor) ---
+READ_TOOLS = {
+    "read_file", "search_files", "web_search", "web_extract", "session_search",
+    "browser_snapshot", "browser_console", "browser_get_images", "list_directory",
+    "mcp_filesystem_read_file", "mcp_filesystem_read_text_file", "mcp_filesystem_read_multiple_files",
+    "mcp_filesystem_list_directory", "mcp_filesystem_list_directory_with_sizes",
+    "mcp_filesystem_directory_tree", "mcp_filesystem_get_file_info", "mcp_filesystem_search_files",
+}
+
+def classify_tool(function_name, args):
+    """Klasifikasi tool-call (name + args) -> vonis. Konservatif buat yg tak dikenal."""
+    args = args or {}
+    name = function_name or ""
+    if name in READ_TOOLS:
+        return V("AUTO_OK", f"read-only tool ({name}).")
+    if name == "terminal":
+        cmd = args.get("command") or args.get("cmd") or ""
+        return classify_command(cmd)
+    if name in ("write_file", "patch"):
+        path = args.get("path") or args.get("file_path") or args.get("target") or args.get("filename") or ""
+        if path and is_protected(path):
+            return V("NEEDS_APPROVAL", f"{name} ke PROTECTED_PATH ({path}).")
+        if path and in_safe_zone(path):
+            return V("AUTO_OK", f"{name} di SAFE_ZONE.")
+        return V("AUTO_OK_W_BACKUP", f"{name} file di luar safe-zone.", ["backup"])
+    if name == "send_message":
+        return V("AUTO_OK", "balas user (channel percakapan).")
+    if name == "execute_code":
+        return V("AUTO_OK_W_BACKUP", "execute_code (jalanin kode) -> backup/workspace mindset.", ["workspace_or_backup"])
+    if name == "cronjob":
+        return V("NEEDS_APPROVAL", "ubah cron/scheduler.")
+    if name == "process":
+        return V("NEEDS_APPROVAL", "manajemen proses (bisa kill).")
+    if name in ("todo", "memory", "skill_manage", "delegate_task",
+                "browser_click", "browser_type", "browser_press", "browser_scroll", "browser_navigate"):
+        return V("AUTO_OK", f"tool internal/low-risk ({name}).")
+    return V("NEEDS_APPROVAL", f"tool tak dikenal ({name}) -> konservatif.")
+
 if __name__ == "__main__":
     cmd = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else sys.stdin.read().strip()
     print(json.dumps(classify_command(cmd), ensure_ascii=False, indent=2))
