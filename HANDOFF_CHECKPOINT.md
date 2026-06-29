@@ -428,3 +428,17 @@ Tujuan: enforce gate di LAPIS EKSEKUSI tool (gak bisa bypass). Fase: shadow -> m
 - Deploy: `scripts/deploy_pipa_routing.sh` (copy SKILL.md + inject direktif USER.md, idempotent+backup, validasi frontmatter). TIDAK restart; aktif di SESSION BARU (/new). ROLLBACK: restore USER.md.bak + rm -rf skills/pipa-routing.
 - Repo: branch feat/action-gate-v2-plugin (PR #2). TEST: behavioral di session baru (kasih tugas doc -> harus minta spec dulu/structure; kasih tugas web -> harus cite-or-abstain, gak ngarang sumber). BELUM TERBUKTI sampai diuji di session nyata.
 - SISA OPEN (urut rekomendasi): A wiring renderer (doc/ppt) -> B web-grounding skill+tool -> C deterministik mistake-logging via post_tool_call hook -> D-hard combo routing (kalau perlu). Mistake-memory (LESSONS.md) saat ini = CLI + direktif advisory (belum deterministik).
+
+
+
+### 12.18 PIPA-ROUTING D-soft — TERBUKTI (behavioral) + temuan Acer>repo (2026-06-29 ~17:30)
+- Frontmatter SKILL.md sempat GAGAL yaml.safe_load (ada ': ' di description tak-dikutip) -> FIX: description di-quote + ':' inline jadi '-'. Verified parse OK pakai PyYAML asli (neuro-arc/arsi/pipa-routing semua OK). Redeploy: RESULT_FRONTMATTER OK.
+- UJI BEHAVIORAL (session baru):
+  - DOC ("bikin slide 5 hal"): Jarvis skill_view pipa-routing+neuro-arc+pptx-slides-creation-guard -> struktur dulu -> execute_code python-pptx render -> terminal ls verify (32KB). = Structure-Before-Render JALAN (bukan one-shot). PASS.
+  - WEB ("data 2025" lalu ralat "2026"): untuk 2026 Jarvis ABSTAIN ("belum terkonfirmasi dipublikasikan"), pisah FAKTA TERVERIFIKASI vs BELUM TERBUKTI + NEXT SAFE ACTION, gak ngarang angka. cite-or-abstain JALAN. PASS inti.
+- CAVEAT JUJUR (belum kelar):
+  1. WEB drift angka: sumber sama (DataReportal) dua jawaban beda (221,6jt/79,5% vs 212,9jt/77,0%) -> salah-atribusi APJII->DataReportal. cite-or-abstain nangkep yg besar, detail angka masih meleset. B perlu aturan "angka WAJIB dikutip dari halaman ter-fetch, bukan ingatan".
+  2. DOC: file ke-render+verify ADA, tapi ISI/akurasi belum dinilai (perlu buka PPTX).
+- TEMUAN PENTING (koreksi asumsi repo-based): Acer punya skill yg TIDAK ADA di repo: `pptx-slides-creation-guard`, `arif-realtime-evidence-protocol-v2` (+ kemungkinan lain). Penilaian "renderer gak wired / web belum dibangun" tadi BASI (itu dari repo). Acer lebih maju.
+  -> RISIKO: skill-skill itu cuma di Acer, gak ke-backup/version-control. GAP: perlu tarik semua ~/.hermes/skills/* ke repo (backup + bisa diff/iterate).
+- REVISI PRIORITAS SISA: (0) BACKUP skill Acer->repo dulu (cheap, anti-kehilangan + bikin penilaian akurat). (B') perketat web fact-binding (angka dari fetched page). (A') nilai kualitas pptx-slides-creation-guard yg udah ada, baru perbaiki kalau perlu (jangan bikin ulang renderer dari nol -> over-engineering). (C) mistake-logging deterministik via post_tool_call.
