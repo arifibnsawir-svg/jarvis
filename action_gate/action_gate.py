@@ -119,11 +119,19 @@ def classify_command(cmd, context="default"):
     if re.search(r'(post|publish|tweet|/sendmessage|sendmail|mail -s|smtp)', low) and not re.search(r'(localhost|127\.0\.0\.1)', low):
         return V("NEEDS_APPROVAL", "Aksi publikasi/kirim ke pihak ketiga (irreversible-ish).")
 
-    # 7. read-only / inspect
-    READ = ["ls", "cat", "grep", "find", "stat", "head", "tail", "wc", "sha256sum", "md5sum",
-            "pwd", "whoami", "ps", "ss", "netstat", "df", "du", "date", "uname", "which",
-            "git status", "git log", "git diff", "git show", "git branch", "journalctl"]
-    if any(low.startswith(rc) for rc in READ) or low.startswith("systemctl") and re.search(r'\b(status|is-active|is-enabled|list)\b', low):
+    # 7. read-only / inspect (kecuali ada redirect tulis '>' -> biarin section 8 yg nilai path-nya,
+    #    biar 'cat rahasia > ~/.hermes/config.yaml' gak lolos sebagai "read-only")
+    has_out_redirect = ">" in c
+    READ = ["ls", "cat", "grep", "egrep", "fgrep", "rg", "find", "stat", "head", "tail",
+            "wc", "sha256sum", "md5sum", "pwd", "whoami", "ps", "ss", "netstat", "df", "du",
+            "date", "uname", "which", "echo", "printf", "env", "jq", "cut", "sort", "uniq",
+            "tr", "column", "basename", "dirname", "realpath", "readlink", "file", "diff",
+            "cmp", "type", "id", "groups", "hostname", "uptime", "free", "tree", "less", "more",
+            "git status", "git log", "git diff", "git show", "git branch", "git remote", "journalctl"]
+    if not has_out_redirect and (
+        any(low.startswith(rc) for rc in READ)
+        or (low.startswith("systemctl") and re.search(r'\b(status|is-active|is-enabled|list)\b', low))
+    ):
         return V("AUTO_OK", "Read-only / inspect.")
     if first == "curl":
         if re.search(r'(-x\s*post|--data\b|-d\b)', low) and not re.search(r'(localhost|127\.0\.0\.1)', low):

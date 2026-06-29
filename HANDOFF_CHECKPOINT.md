@@ -381,3 +381,26 @@ Tujuan: enforce gate di LAPIS EKSEKUSI tool (gak bisa bypass). Fase: shadow -> m
 - NEXT (urut): (1) observe shadow beberapa hari di tugas beragam; (2) opsional dry-run accuracy sweep via `python3 ~/.hermes/action_gate/action_gate.py "<cmd>"` (klasifikasi murni, TANPA eksekusi); (3) baru `ACTION_GATE_MODE=live` di env gateway + restart buat enforce.
 - KILL-SWITCH: `ACTION_GATE_MODE=off`. ROLLBACK plugin: `rm -rf ~/.hermes/plugins/action_gate_v2` + restart. ROLLBACK config: `cp ~/.hermes/config.yaml.bak.<ts> ~/.hermes/config.yaml`.
 - ANTI-FALSE-READY: "shadow live" != "DONE/enforce". Naik live butuh bukti shadow bersih + GO Arif.
+
+
+
+### 12.15 ACTION-GATE v2 — TUNING SHADOW + TEMUAN PRE-LIVE (2026-06-29 ~16:1x WIB)
+> Dari dry-run akurasi + distribusi trafik shadow. Tetap SHADOW; tuning aman aja, JANGAN live dulu.
+
+#### BUKTI (dry-run klasifikasi murni, tanpa eksekusi):
+- Kasus bahaya AKURAT 8/8: rm-protected & exfil .env -> REFUSE; force-push & pip -> NEEDS_APPROVAL; read-only & tulis-outbox -> AUTO_OK.
+- Default-deny: command dev/build tak-dikenal (python3/node/make/tar/jq/awk/docker/./run.sh) -> NEEDS_APPROVAL.
+- Distribusi 17 entri shadow (TERCEMAR command diagnostik sendiri, blm representatif): AUTO_OK 3, AUTO_OK_W_BACKUP 5, NEEDS_APPROVAL 5, REFUSE 4.
+- Command majemuk (loop/;/heredoc) diklasifikasi sbg 1 blob via substring -> dry-run loop sendiri kena REFUSE krn stringnya memuat "rm -rf config.yaml" (errs-safe, tapi nunjukin batas regex-gate).
+
+#### TUNING SUDAH DIKERJAIN (commit di branch, SHADOW = zero-risk):
+- `action_gate.py` section 7: READ-list diperluas (echo/printf/env/jq/cut/sort/uniq/tr/column/basename/dirname/realpath/readlink/file/diff/cmp/type/id/groups/hostname/uptime/free/tree/less/more/rg/git remote) -> util baca jelas-aman jadi AUTO_OK (turunin friction).
+- TUTUP LUBANG: kalau ada redirect '>' -> TIDAK lagi dianggap read-only, jatuh ke section 8 (write) biar path-nya dinilai. Fix `cat rahasia > ~/.hermes/config.yaml` yg dulu lolos AUTO_OK -> sekarang NEEDS_APPROVAL.
+- Interpreter (python3/bash/sh/node/make/...) SENGAJA TETAP NEEDS_APPROVAL. Test lokal 17/17 PASS.
+
+#### MUST-FIX / PUTUSKAN SEBELUM LIVE (jangan live tanpa ini beres):
+1. INTERPRETER BYPASS: auto-allow `python3 -c "..."`/`bash -c` = kode arbitrer lolos gate pola. Keputusan Arif: (a) biarin NEEDS_APPROVAL (aman, friction) atau (b) skema lain (mis. cuma allow di workspace + backup). DEFAULT sekarang = (a).
+2. COMMAND MAJEMUK: blob `;`/`&&`/`|`/heredoc dinilai utuh. Pertimbangkan split per-segmen ambil verdict paling ketat. BELUM diimplement (hindari over-engineering sebelum ada bukti perlu).
+3. FRICTION NYATA: kumpulin trafik shadow ORGANIK (bukan command diagnostik) bbrp hari -> ukur % NEEDS_APPROVAL pada kerja legit -> tuning dari DATA, bukan tebakan.
+
+#### KEPUTUSAN: tetap SHADOW. Live cuda setelah (1) diputuskan, friction organik terukur OK, dan GO Arif.
