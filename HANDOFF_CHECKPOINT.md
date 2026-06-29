@@ -400,7 +400,7 @@ Tujuan: enforce gate di LAPIS EKSEKUSI tool (gak bisa bypass). Fase: shadow -> m
 
 #### MUST-FIX / PUTUSKAN SEBELUM LIVE (jangan live tanpa ini beres):
 1. INTERPRETER BYPASS: auto-allow `python3 -c "..."`/`bash -c` = kode arbitrer lolos gate pola. Keputusan Arif: (a) biarin NEEDS_APPROVAL (aman, friction) atau (b) skema lain (mis. cuma allow di workspace + backup). DEFAULT sekarang = (a).
-2. COMMAND MAJEMUK: blob `;`/`&&`/`|`/heredoc dinilai utuh. Pertimbangkan split per-segmen ambil verdict paling ketat. BELUM diimplement (hindari over-engineering sebelum ada bukti perlu).
+2. COMMAND MAJEMUK: [DONE 2026-06-29] split top-level (;/&&/||/|/newline) hormati kutip, heredoc tak dipecah, verdict PALING KETAT menang. Nutup prefix-masking ('echo x && ./run.sh' dulu AUTO_OK -> NEEDS_APPROVAL) & 'cat f | tee protected' (dulu lolos read -> NEEDS_APPROVAL). Test 21/21 PASS. Implement di classify_command (wrapper) + _classify_single (body lama).
 3. FRICTION NYATA: kumpulin trafik shadow ORGANIK (bukan command diagnostik) bbrp hari -> ukur % NEEDS_APPROVAL pada kerja legit -> tuning dari DATA, bukan tebakan.
 
 #### KEPUTUSAN: tetap SHADOW. Live cuda setelah (1) diputuskan, friction organik terukur OK, dan GO Arif.

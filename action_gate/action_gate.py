@@ -63,7 +63,7 @@ def extract_paths(cmd):
 def V(verdict, reason, requires=None):
     return {"verdict": verdict, "reason": reason, "requires": requires or []}
 
-def classify_command(cmd, context="default"):
+def _classify_single(cmd, context="default"):
     c = cmd.strip()
     low = c.lower()
     paths = extract_paths(c)
@@ -150,6 +150,52 @@ def classify_command(cmd, context="default"):
 
     # 9. default konservatif
     return V("NEEDS_APPROVAL", "Aksi tak dikenali -> default konservatif (escalate ke Arif).")
+
+
+# --- Command majemuk: nilai TIAP segmen, ambil verdict PALING KETAT (anti prefix-masking) ---
+_SEVERITY = {"AUTO_OK": 0, "AUTO_OK_W_BACKUP": 1, "NEEDS_APPROVAL": 2, "REFUSE": 3}
+
+def _split_top_level(cmd):
+    """Pecah command pada operator chaining top-level (; && || | newline),
+    HORMATI tanda kutip (jangan pecah di dalam '...' atau \"...\")."""
+    parts, buf, i, q, n = [], [], 0, None, len(cmd)
+    while i < n:
+        ch = cmd[i]
+        if q:
+            buf.append(ch)
+            if ch == q:
+                q = None
+            i += 1
+            continue
+        if ch in ("'", '"'):
+            q = ch; buf.append(ch); i += 1; continue
+        if cmd[i:i+2] in ("&&", "||"):
+            parts.append("".join(buf)); buf = []; i += 2; continue
+        if ch in (";", "|", "\n"):
+            parts.append("".join(buf)); buf = []; i += 1; continue
+        buf.append(ch); i += 1
+    parts.append("".join(buf))
+    return [p.strip() for p in parts if p.strip()]
+
+def classify_command(cmd, context="default"):
+    """Compound-aware wrapper.
+    - Heredoc ('<<') -> JANGAN dipecah (hindari salah-potong body); pakai scan utuh (sudah errs-safe).
+    - Selain itu: pecah top-level, klasifikasi tiap segmen, verdict PALING KETAT yang menang.
+      Nutup prefix-masking spt 'echo x && ./run.sh' (dulu AUTO_OK krn prefix echo) dan
+      'cat f | tee ~/.hermes/config.yaml' (dulu lolos sbg read)."""
+    if cmd and "<<" not in cmd:
+        segs = _split_top_level(cmd)
+        if len(segs) > 1:
+            worst = None
+            for s in segs:
+                r = _classify_single(s, context)
+                if worst is None or _SEVERITY[r["verdict"]] > _SEVERITY[worst["verdict"]]:
+                    worst = r
+            worst = dict(worst)
+            worst["reason"] = "[majemuk] " + worst.get("reason", "")
+            return worst
+    return _classify_single(cmd, context)
+
 
 def assert_allowed(cmd, context="default"):
     r = classify_command(cmd, context)
