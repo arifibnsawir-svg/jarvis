@@ -475,3 +475,15 @@ Tujuan: enforce gate di LAPIS EKSEKUSI tool (gak bisa bypass). Fase: shadow -> m
 - KONSEKUENSI: nambah skill (guizang/office-academic) PERCUMA tanpa fix routing. office-academic-skill REDUNDAN vs academic-document-factory (saran hapus). guizang DITAHAN.
 - NEXT (prioritas): wiring pipa-routing (D) mapping eksplisit intent->skill spesialis + humanizer selalu. Sebelum nunjuk skill "wow", VERIFIKASI kualitas output (freehand HTML Jarvis vs claude-design) via screenshot browser (HTML content:// gak bisa diakses Kiro; user buka di browser + kirim PNG).
 - Skill discovery: config skill_dirs kosong = SEMUA skill di ~/.hermes/skills/ auto-available (skill.py iterdir + auto_load). Jadi bukan masalah discovery, murni SELEKSI.
+
+
+
+### 12.22 ACADEMIC SOURCING works + PPTX quality ceiling = HTML vs pptx (2026-06-30 ~01:00)
+- ACADEMIC SOURCING rule (USER.md L625) JALAN: tes PPT sidang -> Jarvis delegate_task cari sumber -> dapet 5 sumber Indonesia ASLI (Bire 2014 Jurnal Kependidikan, Ghufron&Risnawita 2012, Hartati 2015 Formatif, Papilaya&Huliselan 2016 J.Psikologi Undip, Widayanti 2013 ERUDIO), dikutip di Daftar Pustaka. Indonesia-first + no-halu = TERBUKTI. Learning 1260e8e6.
+- MASALAH SELEKSI (lagi): Jarvis utk PPT sidang pilih skill `powerpoint` -> bikin **pptxgenjs (Node.js)** freehand, BUKAN render_deck.py v2 kita. Bahkan nyangkut crash `sharp` (CPU Acer lama: "Illegal instruction"), workaround buang sharp. Jadi render_deck v2 gak kepake. Ada 2 jalur pptx bersaing (powerpoint/pptxgenjs vs render_deck) -> routing belum misahin.
+- AKAR "belum seperti Kiro buat": kualitas tinggi Kiro = jalur HTML/CSS (book via WeasyPrint, deck parfum via claude-design). HTML/CSS jauh lebih ekspresif dari engine pptx mana pun (python-pptx ATAU pptxgenjs) -> PPTX punya PLAFON. pptxgenjs (161K, cards/shadow/flow) udah "lebih baik" dari render_deck v1 tapi tetap di bawah HTML.
+- KEPUTUSAN PENDING (nentuin arah): sidang WAJIB .pptx editable, atau PDF cakep diterima?
+  - PDF ok -> HTML/CSS -> PDF (Kiro-grade, achievable now). REKOMENDASI.
+  - .pptx wajib -> dekat plafon: html2pptx (HTML->editable pptx, verify fidelity) ATAU terima render_deck v2 clean (deterministik, no Node/sharp).
+- TODO routing: arahkan academic pptx ke 1 jalur DETERMINISTIK (hindari pptxgenjs+sharp yg crash di Acer). Catatan: sharp/native-binary CRASH di CPU Acer lama -> hindari skill yg butuh sharp.
+- render_deck v2 (renderer/render_deck.py) udah dibuat (preset academic/business/dark + layout big_stat/quote/timeline/section-bernomor) tapi BELUM kepakai Jarvis (kalah routing vs powerpoint/pptxgenjs). Perlu wiring eksplisit kalau jalur pptx dipilih.
