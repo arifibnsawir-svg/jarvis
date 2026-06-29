@@ -453,3 +453,13 @@ Tujuan: enforce gate di LAPIS EKSEKUSI tool (gak bisa bypass). Fase: shadow -> m
 - SISA OPSIONAL (bukan keharusan): ikon/ilustrasi/gambar (butuh set ikon kurasi, jaga anti-halu), heading font lebih tegas, tema varian. JANGAN bikin engine desain raksasa (over-engineering) sebelum diminta.
 - BELUM DIUJI: skill V2 wiring otomatis (apakah Jarvis di /new beneran keluarin spec -> render_deck.py sendiri, bukan ad-hoc). Uji: /new lalu minta bikin deck dari nol.
 - CARA KIRIM FILE: render via command langsung TIDAK auto-kirim ke Telegram; minta Jarvis "kirim file <path> sebagai dokumen" (alur normal pptx-creation yg auto-attach).
+
+
+
+### 12.20 ADOPSI office-academic-skill (lane joki kuliah) — DEPLOYED, pending uji (2026-06-29)
+- Sumber: zLanqing/codex-claude-academic-skills (MIT). SCOPED: cuma `office-academic-skill` (skip scientific-toolkit & research-writing & guizang/AGPL). Alasan pilih: output .pptx/.docx EDITABLE + anti-fabrikasi + tag sumber + template-clone + overflow scan = pas buat tugas akademik.
+- Deploy via scripts/deploy_office_academic_skill.sh: clone upstream -> copy folder ke ~/.hermes/skills/office-academic-skill (2.7M, references+scripts+agents) -> sisip override BAHASA INDONESIA (upstream default China) -> install deps venv (python-pptx/Pillow/PyMuPDF/pypdf) -> verifikasi. commit upstream 7ed6377.
+- VERIFIED teknis: frontmatter name=office-academic-skill, template_tools import OK, override ID kesisip (SKILL.md baris 5-6). LICENSE.upstream dijaga (atribusi MIT).
+- KLASIFIKASI ARSITEKTUR (penting, jangan kabur): skill ini = lapis PRODUKSI artefak (keluarga A', sodara render_deck.py), BUKAN router D. D cuma kesentuh nanti via +1 rute di pipa-routing.
+- BELUM TERBUKTI: (a) Hermes loader auto-surface skill ini (skill_view) di /new; (b) output beneran Indonesia+editable; (c) DISAMBIGUASI vs pptx-slides-creation-guard/render_deck (sekarang ADA 2 jalur pptx -> rawan Jarvis bingung pilih). Uji /new dulu, baru wiring pipa-routing buat misahin: akademik/template -> office-academic-skill; deck cepat -> render_deck; pamer HTML -> (nanti) guizang.
+- ROLLBACK: rm -rf ~/.hermes/skills/office-academic-skill (+ _src_academic).
