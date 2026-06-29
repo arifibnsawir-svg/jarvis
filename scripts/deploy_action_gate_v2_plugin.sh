@@ -39,7 +39,25 @@ ok = (r1 is None and r2 is None)
 print("RESULT:", "PASS (shadow: kedua None = observe-only)" if ok else "FAIL (shadow harusnya gak ngeblok)")
 PY
 
-echo; echo "=== [5] CATATAN (penting) ==="
+echo; echo "=== [5] enable plugin di config.yaml (OPT-IN; idempotent + backup + YAML-check, TIDAK restart) ==="
+CFG=~/.hermes/config.yaml
+if grep -q "^    - action_gate_v2$" "$CFG"; then
+  echo "action_gate_v2 sudah ada di plugins.enabled (skip)"
+else
+  cp "$CFG" "$CFG.bak.$(date +%Y%m%d_%H%M%S)" && echo "backup config.yaml dibuat"
+  if grep -q "^    - nli_router$" "$CFG"; then
+    sed -i '/^    - nli_router$/a\    - action_gate_v2' "$CFG"
+    echo "action_gate_v2 ditambahin ke plugins.enabled"
+  else
+    echo "WARN: anchor '    - nli_router' gak ketemu -> tambahin '    - action_gate_v2' MANUAL di bawah plugins.enabled"
+  fi
+fi
+echo "--- YAML sanity (abort sebelum restart kalau rusak) ---"
+python3 -c "import yaml,os;yaml.safe_load(open(os.path.expanduser('~/.hermes/config.yaml')));print('YAML_OK')"
+echo "--- isi blok plugins: ---"
+sed -n '/^plugins:/,/^[^[:space:]]/p' "$CFG" | head -12
+
+echo; echo "=== [6] CATATAN (penting) ==="
 echo "- Plugin ke-DISCOVER cuma setelah RESTART gateway (reload/SIGUSR1 gak rediscover plugin baru)."
 echo "  Restart BUTUH GO Arif (~210s): systemctl --user restart hermes-gateway"
 echo "- Verifikasi shadow setelah restart: kasih Jarvis tugas pakai tool/terminal ->"
