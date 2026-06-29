@@ -1,0 +1,29 @@
+{
+  "footer": "Manfaat Tidur Cukup bagi Mahasiswa",
+  "theme": {},
+  "slides": [
+    {"layout": "cover", "eyebrow": "Kesehatan & Akademik", "title": "Manfaat Tidur Cukup bagi Mahasiswa", "subtitle": "Optimalisasi Kesehatan dan Performa Akademik"},
+    {"layout": "bullets", "title": "Mengapa Tidur Cukup Penting?", "bullets": [
+      "Kebutuhan biologis: tidur adalah fungsi dasar tubuh manusia",
+      "Durasi ideal: mahasiswa butuh 7-9 jam per malam",
+      "Risiko: kurang tidur menurunkan kesehatan fisik dan mental",
+      "Kognitif: tidur berkualitas menguatkan fokus dan daya ingat"]},
+    {"layout": "section", "title": "Manfaat untuk Kesehatan Fisik", "subtitle": "Imun, regenerasi, dan metabolisme"},
+    {"layout": "bullets", "title": "Manfaat untuk Kesehatan Fisik", "bullets": [
+      "Imun: meningkatkan sistem kekebalan tubuh",
+      "Regenerasi: mempercepat pemulihan dan perbaikan sel",
+      "Jantung: menurunkan risiko penyakit jantung dan diabetes",
+      "Hormon: menjaga keseimbangan hormon dan metabolisme",
+      "Energi: menambah stamina untuk aktivitas harian"]},
+    {"layout": "two_col", "title": "Dampak pada Performa Akademik",
+      "left": {"heading": "Saat Cukup Tidur", "bullets": ["Fokus & konsentrasi naik", "Daya ingat jangka panjang kuat", "Problem-solving tajam", "Lebih kreatif"]},
+      "right": {"heading": "Saat Kurang Tidur", "bullets": ["Sulit konsentrasi", "Mudah lupa materi", "Banyak salah saat ujian", "Produktivitas turun"]}},
+    {"layout": "bullets", "title": "Tips Tidur Berkualitas", "bullets": [
+      "Jadwal: tidur dan bangun di jam yang konsisten",
+      "Hindari: kafein dan gadget 1-2 jam sebelum tidur",
+      "Lingkungan: kamar gelap, sejuk, dan tenang",
+      "Relaksasi: membaca ringan atau stretching",
+      "Manajemen waktu: kurangi begadang demi deadline"]},
+    {"layout": "closing", "title": "Terima Kasih", "subtitle": "Tidur cukup = investasi untuk kesehatan dan prestasi"}
+  ]
+}
