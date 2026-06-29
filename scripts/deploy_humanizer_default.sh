@@ -7,7 +7,7 @@ set -uo pipefail
 import pathlib, shutil, time
 um = pathlib.Path.home()/".hermes/memories/USER.md"
 ts = time.strftime("%Y%m%d_%H%M%S")
-MARK = "humanizer skill by DEFAULT to the prose of ANY generated artifact"
+MARK = "by DEFAULT to the prose of ANY generated artifact"
 d = ("Apply the 'humanizer' skill by DEFAULT to the prose of ANY generated artifact before finalizing, "
      "not only social posts: PPT/slides, Word/DOCX, PDF, reports, and any document deliverable. Run it as the "
      "FINAL style pass regardless of which production skill created the artifact (academic-document-factory, "
