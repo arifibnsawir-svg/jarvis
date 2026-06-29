@@ -415,3 +415,16 @@ Tujuan: enforce gate di LAPIS EKSEKUSI tool (gak bisa bypass). Fase: shadow -> m
   - bukti engine action-gate kepake di proses yg melayani: `grep -c "majemuk" ~/.hermes/action_gate/decisions.jsonl` + cek timestamp entri > waktu restart. Marker `[majemuk]` cuma diproduksi engine compound-aware -> bukti ruleset final aktif.
 - STATUS FINAL (terbukti): ruleset action-gate final (READ-list tuned + redirect-fix + compound-aware) AKTIF di gateway PID 466207 sejak 16:51. Shadow, allow_execution:true semua. 4 entri `[majemuk]` post-restart = bukti behavioral.
 - PARKIR: kumpulin trafik ORGANIK bbrp hari -> baca distribusi -> whitelist data-driven -> keputusan interpreter -> baru live (GO Arif).
+
+
+
+### 12.17 PIPA-ROUTING SKILL (D-soft) — dibuat, siap deploy (2026-06-29)
+> Lanjutan dari pertanyaan Arif "router biar model+jalur bener" (pilihan D). D dipecah: soft (skill) vs hard (infra).
+
+- KEPUTUSAN: garap **D-soft** (skill pipa-routing) dulu; **D-hard** (routing combo per-request di 9router) DITUNDA sampai (a) kebukti gateway dukung override model per-request, (b) ada data jarvis-agent kurang per-tugas. Anti-over-engineering.
+- D-soft = `skills/pipa-routing/SKILL.md` (4610B) + direktif always-on di USER.md (pola deploy_alwayson.sh). Router PERILAKU: scan niat -> pilih KEDALAMAN (trivial/riset/artefak, adaptive) -> pilih PENDEKATAN per artifact_type (kode; dokumen/slide=Structure-Before-Render JANGAN one-shot; web=cite-or-abstain; audit=gate). Router TIDAK pernah blok/vonis (separation router!=gate). precedes neuro-arc.
+- Kenapa ini fondasi: ini "Router yang menentukan kedalaman" yg dirujuk skill neuro-arc tapi belum ada. Langsung nolong 2 pain Arif: web-halu (cite-or-abstain) & doc one-shot (Structure-Before-Render mindset).
+- BATAS JUJUR: skill ini memperbaiki PENDEKATAN. Doc kelar total tetap butuh A (wiring renderer python-docx/pptx, OPEN item #6). Web kelar butuh tool search + verify (B). Skill = fondasi, bukan solusi penuh.
+- Deploy: `scripts/deploy_pipa_routing.sh` (copy SKILL.md + inject direktif USER.md, idempotent+backup, validasi frontmatter). TIDAK restart; aktif di SESSION BARU (/new). ROLLBACK: restore USER.md.bak + rm -rf skills/pipa-routing.
+- Repo: branch feat/action-gate-v2-plugin (PR #2). TEST: behavioral di session baru (kasih tugas doc -> harus minta spec dulu/structure; kasih tugas web -> harus cite-or-abstain, gak ngarang sumber). BELUM TERBUKTI sampai diuji di session nyata.
+- SISA OPEN (urut rekomendasi): A wiring renderer (doc/ppt) -> B web-grounding skill+tool -> C deterministik mistake-logging via post_tool_call hook -> D-hard combo routing (kalau perlu). Mistake-memory (LESSONS.md) saat ini = CLI + direktif advisory (belum deterministik).
