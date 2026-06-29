@@ -1,6 +1,6 @@
 ---
 name: pipa-routing
-description: Lapis ROUTER Jarvis (pilih jalur, JANGAN pernah blok input). Dipakai PALING AWAL pada tiap permintaan untuk menentukan KEDALAMAN dan PENDEKATAN sebelum NEURO-ARC/ARSI jalan. Skala effort ke bobot masalah (adaptive depth): chat trivial dijawab langsung; riset/brainstorm internal mode bebas (gate BYPASS); tugas artefak/keputusan lewat NEURO-ARC -> ARSI -> gate PIPA4 (gate NYALA). Cocokkan pendekatan ke artifact_type: kode -> coding; dokumen/slide/sheet -> Structure-Before-Render (keluarkan spec lalu render+verify, JANGAN one-shot freehand); web/riset -> cite-or-abstain (verifikasi sumber, jangan ngarang); audit/QA -> gate deterministik. Router != gate: ringan, tidak memvonis, tidak menolak.
+description: "Lapis ROUTER Jarvis (pilih jalur, JANGAN pernah blok input). Dipakai PALING AWAL pada tiap permintaan untuk menentukan KEDALAMAN dan PENDEKATAN sebelum NEURO-ARC/ARSI jalan. Skala effort ke bobot masalah (adaptive depth) - chat trivial dijawab langsung; riset/brainstorm internal mode bebas (gate BYPASS); tugas artefak/keputusan lewat NEURO-ARC lalu ARSI lalu gate PIPA4 (gate NYALA). Cocokkan pendekatan ke artifact_type - kode jadi coding; dokumen/slide/sheet jadi Structure-Before-Render (keluarkan spec lalu render+verify, JANGAN one-shot freehand); web/riset jadi cite-or-abstain (verifikasi sumber, jangan ngarang); audit/QA jadi gate deterministik. Router bukan gate - ringan, tidak memvonis, tidak menolak."
 category: core
 version: 0.1.0
 author: Arif
