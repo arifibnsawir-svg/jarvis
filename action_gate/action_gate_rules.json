@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "safe_zone": [
+    "~/.hermes/workspaces/",
+    "~/.hermes/outbox/",
+    "~/.hermes/cache/",
+    "/tmp/"
+  ],
+  "protected_paths": [
+    "~/.hermes/config.yaml",
+    "~/.hermes/scripts/guardian_router.py",
+    "~/.hermes/hermes-agent/",
+    "~/.hermes/memories/",
+    "~/.config/systemd/user/",
+    "~/.hermes/pipelines/pipa4/",
+    "~/.9router/",
+    "~/.hermes/guardian/",
+    "~/.hermes/state/ARIF_STACK_EVENT_LOG.md",
+    "~/.hermes/action_gate/"
+  ],
+  "protected_services": [
+    "hermes-gateway",
+    "hermes-9router",
+    "hermes-9router-direct",
+    "hermes-guardian",
+    "hermes-autorouter"
+  ],
+  "safety_mechanisms": ["action_gate", "guardian_router", "pipa4", "LESSONS.md", ".bak"],
+  "secrets_patterns": ["\\.env", "api[_-]?key", "\\btoken\\b", "sk-", "bearer", "NINEROUTER_KEY", "ROUTER_KEY"],
+  "destructive": ["rm -rf", "rm -fr", "rm -r ", "rm -f ", "\\bdd ", "mkfs", "> /dev/", "chmod -R", "truncate ", ":(){"],
+  "service_special": {
+    "hermes-gateway": "slow_210s -- restart nyangkut ~210s, tunggu + verify",
+    "hermes-9router": "manual_killstart -- systemd disabled, kill+start manual",
+    "hermes-9router-direct": "manual_killstart"
+  }
+}
