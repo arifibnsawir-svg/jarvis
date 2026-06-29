@@ -49,6 +49,20 @@ sesuai artifact_type) + konteks (Fable/Mythos). Bukan jawaban, bukan vonis.
    - `internal_research` / `code_patching` -> gate brand BYPASS.
    - `public_social` / `book_draft` -> gate NYALA.
 
+## Peta skill produksi (pilih yang TERBAIK, JANGAN freehand / jangan ambil guard generik)
+Acer punya banyak skill. Saat memproduksi artefak, WAJIB pilih skill spesialis terbaik sesuai niat,
+bukan menulis dari nol atau jatuh ke guard umum:
+- **Deck "wow" / bisnis / marketing / pitch / personal-brand** -> `claude-design` (default; doktrin desain, hasil paling refined) ATAU `popular-web-designs` (kalau diminta gaya bermerek tertentu: Stripe/Linear/Vercel/dll). Output: HTML satu-file, dark/modern, **ikon SVG/garis, TANPA emoji**, tanpa gradient-blob slop.
+- **Akademik / tugas** (makalah, laporan baca PDF->Word, PPT sidang/presentasi, mini-book) -> `academic-document-factory` (+ `office-document-ops` untuk operasi file). Output: **DOCX/PPTX editable** dengan label sumber.
+- **PPTX cepat & sederhana** -> `powerpoint` atau `render_deck.py`.
+- **Infografis** -> `baoyu-infographic`.
+
+ATURAN WAJIB di SEMUA jalur produksi (terlepas skill mana yang dipilih):
+1. **Humanizer** dijalankan ke prosa sebelum finalisasi (default, tidak bisa di-skip).
+2. **TANPA emoji** kecuali diminta eksplisit; di deck pakai ikon SVG/garis.
+3. **Angka/klaim kuantitatif tanpa sumber terverifikasi** WAJIB dilabel "estimasi - sumber belum terverifikasi" atau dihilangkan (cite-or-abstain). Jangan sajikan tebakan sebagai fakta.
+4. **Jangan deklarasi FINAL/READY** tanpa validasi (otoritas gate, bukan klaim LLM).
+
 ## Catatan: routing perilaku vs routing model
 Skill ini = routing PERILAKU (kedalaman + pendekatan), berlaku tanpa ubah infra. Routing MODEL
 (ganti combo 9router per tugas: coder/longform/reason) itu lapis INFRA terpisah; jangan diasumsikan
