@@ -463,3 +463,15 @@ Tujuan: enforce gate di LAPIS EKSEKUSI tool (gak bisa bypass). Fase: shadow -> m
 - KLASIFIKASI ARSITEKTUR (penting, jangan kabur): skill ini = lapis PRODUKSI artefak (keluarga A', sodara render_deck.py), BUKAN router D. D cuma kesentuh nanti via +1 rute di pipa-routing.
 - BELUM TERBUKTI: (a) Hermes loader auto-surface skill ini (skill_view) di /new; (b) output beneran Indonesia+editable; (c) DISAMBIGUASI vs pptx-slides-creation-guard/render_deck (sekarang ADA 2 jalur pptx -> rawan Jarvis bingung pilih). Uji /new dulu, baru wiring pipa-routing buat misahin: akademik/template -> office-academic-skill; deck cepat -> render_deck; pamer HTML -> (nanti) guizang.
 - ROLLBACK: rm -rf ~/.hermes/skills/office-academic-skill (+ _src_academic).
+
+
+
+### 12.21 HUMANIZER-DEFAULT done + BOTTLENECK = SKILL SELECTION (2026-06-29 ~23:45)
+- HUMANIZER jadi DEFAULT semua artefak: direktif di USER.md L623 (via scripts/deploy_humanizer_default.sh). KEBUKTI jalan: tes deck HTML -> Jarvis `skill_view: humanizer`. (catatan: script sempat lapor false-FAIL krn MARK apostrof; udah difix, direktif tetap tertulis L623). Humanizer kini 3 lapis: sosmed (L5/508/510) + akademik (L564/568/570/579) + semua artefak (L623).
+- TEMUAN UTAMA (kebukti 3x): masalah BUKAN kurang skill (Acer ~200 skill, banyak bagus: academic-document-factory, claude-design, popular-web-designs, baoyu-infographic, powerpoint, office-document-ops). Masalah = **SELEKSI/ROUTING**: Jarvis freehand / ambil guard generik, GAK milih spesialis.
+  - PPT akademik -> pptx-slides-creation-guard/render_deck (bukan academic-document-factory)
+  - Word -> document-preservation-guard + docx ad-hoc
+  - wow HTML -> write_file freehand (bukan claude-design/popular-web-designs)
+- KONSEKUENSI: nambah skill (guizang/office-academic) PERCUMA tanpa fix routing. office-academic-skill REDUNDAN vs academic-document-factory (saran hapus). guizang DITAHAN.
+- NEXT (prioritas): wiring pipa-routing (D) mapping eksplisit intent->skill spesialis + humanizer selalu. Sebelum nunjuk skill "wow", VERIFIKASI kualitas output (freehand HTML Jarvis vs claude-design) via screenshot browser (HTML content:// gak bisa diakses Kiro; user buka di browser + kirim PNG).
+- Skill discovery: config skill_dirs kosong = SEMUA skill di ~/.hermes/skills/ auto-available (skill.py iterdir + auto_load). Jadi bukan masalah discovery, murni SELEKSI.
