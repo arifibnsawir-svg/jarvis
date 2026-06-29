@@ -442,3 +442,14 @@ Tujuan: enforce gate di LAPIS EKSEKUSI tool (gak bisa bypass). Fase: shadow -> m
 - TEMUAN PENTING (koreksi asumsi repo-based): Acer punya skill yg TIDAK ADA di repo: `pptx-slides-creation-guard`, `arif-realtime-evidence-protocol-v2` (+ kemungkinan lain). Penilaian "renderer gak wired / web belum dibangun" tadi BASI (itu dari repo). Acer lebih maju.
   -> RISIKO: skill-skill itu cuma di Acer, gak ke-backup/version-control. GAP: perlu tarik semua ~/.hermes/skills/* ke repo (backup + bisa diff/iterate).
 - REVISI PRIORITAS SISA: (0) BACKUP skill Acer->repo dulu (cheap, anti-kehilangan + bikin penilaian akurat). (B') perketat web fact-binding (angka dari fetched page). (A') nilai kualitas pptx-slides-creation-guard yg udah ada, baru perbaiki kalau perlu (jangan bikin ulang renderer dari nol -> over-engineering). (C) mistake-logging deterministik via post_tool_call.
+
+
+
+### 12.19 PPTX DESIGN-SYSTEM RENDERER — TERBUKTI VISUAL (2026-06-29 ~20:10)
+- Masalah: output pptx Jarvis "standar banget" (hitam-putih, font default, gap mati) -> guard pptx cuma atur struktur/keamanan, GAK atur desain; render ad-hoc python-pptx blank.
+- FIX (live & verified visual via screenshot WPS): `renderer/render_deck.py` (deploy ke ~/.hermes/scripts/) = design-system 16:9: accent bar atas, garis bawah judul, bullet marker biru, bold lead keyword ("Lead: detail"), layout section (band biru), two_col, closing, footer+nomor halaman, palet #2563EB/#1E40AF/#EEF2FF. Deterministik, anti-halu image.
+- skill `pptx-slides-creation-guard` V2: WAJIB render lewat render_deck.py (spec JSON -> render), larang build-from-blank. Skill lama di-backup + di-mirror ke repo.
+- BUKTI: deck "manfaat tidur" 7 slide ke-render ulang -> Arif lihat di WPS -> VERDICT naik kelas dari "standar" jadi clean-profesional. PASS.
+- SISA OPSIONAL (bukan keharusan): ikon/ilustrasi/gambar (butuh set ikon kurasi, jaga anti-halu), heading font lebih tegas, tema varian. JANGAN bikin engine desain raksasa (over-engineering) sebelum diminta.
+- BELUM DIUJI: skill V2 wiring otomatis (apakah Jarvis di /new beneran keluarin spec -> render_deck.py sendiri, bukan ad-hoc). Uji: /new lalu minta bikin deck dari nol.
+- CARA KIRIM FILE: render via command langsung TIDAK auto-kirim ke Telegram; minta Jarvis "kirim file <path> sebagai dokumen" (alur normal pptx-creation yg auto-attach).
