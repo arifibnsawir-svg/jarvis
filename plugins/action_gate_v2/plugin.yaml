@@ -1,0 +1,5 @@
+name: action_gate_v2
+version: 0.1.0
+description: "Action-gate v2 - gerbang tool-call deterministik via hook pre_tool_call (mode: off|shadow|mock|live, default shadow). Reuse ~/.hermes/action_gate/gate_hook.gate_tool. Core gateway TIDAK dipatch."
+author: arif
+kind: standalone
