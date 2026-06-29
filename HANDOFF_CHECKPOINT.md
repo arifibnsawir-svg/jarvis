@@ -294,3 +294,16 @@ LESSON OPERASIONAL (kepakai sepanjang sesi ini):
 - CATATAN: jarvis-reason via Guardian agak lambat variabel (fallback chain + ~2000 tok system prompt inject); curl pakai -m>=120. phase6a timeout=120 nampung. OPEN: cek model mati di combo jarvis-reason (re-verify).
 - BELUM TERBUKTI: kualitas council jarvis-reason vs DailyFree di artefak nyata (uji pas audit berikut).
 - ROLLBACK council: cp <file>.bak.20260629_013417 -> file asli (4 file). ROLLBACK guardian_router: cp guardian_router.py.bak.20260629_005231 + restart hermes-guardian.service.
+
+
+### 12.12 ACTION-GATE v1 + MISTAKE-MEMORY (2026-06-29) — DEPLOYED & SELF-TEST 10/10
+- Tujuan: bikin Jarvis AUTO-AGENT terkendali (auto di aman, escalate di bahaya, refuse di suicidal, belajar dari salah).
+- Lokasi: ~/.hermes/action_gate/{action_gate.py, action_gate_rules.json, lessons_logger.py}. Repo: action_gate/.
+- VONIS gate: AUTO_OK | AUTO_OK_W_BACKUP | NEEDS_APPROVAL | REFUSE. assert_allowed() lempar PermissionError di REFUSE (anti-bypass, kayak PIPA4).
+- Tier (tunable di rules.json): git push main non-force=AUTO_OK; force-push main=NEEDS_APPROVAL; restart PROTECTED_SERVICE=AUTO_OK_W_BACKUP (+backup config+health-check+auto-rollback); modify/delete PROTECTED_PATHS=NEEDS_APPROVAL; rm protected / tamper safety-mechanism / exfil secret=REFUSE; default tak-dikenal=NEEDS_APPROVAL (konservatif).
+- MISTAKE-MEMORY: L1 auto-log kegagalan/refuse/rollback/koreksi -> ~/.hermes/memories/LESSONS.md; L2 recall sebelum task sejenis; L3 promosi jadi aturan always-on = WAJIB review Arif (anti skill-rot, BUKAN auto).
+- ENFORCEMENT v1 = via DIREKTIF always-on di USER.md (advisory-strong, kayak DNA). v2 (nanti) = wire ke lapis eksekusi hermes-agent biar gak bisa bypass (nyentuh core, observe dulu).
+- Self-test 10/10 PASS (ls/push/force-push/restart-guardian/stop-gateway/rm-config/rm-gate/rm-workspace/pip/exfil).
+- BELUM TERBUKTI: behavioral test (gate dikonsultasi di turn percakapan nyata).
+- Deploy ulang/idempoten: cd ~/jarvis && git pull && bash scripts/deploy_action_gate.sh
+- ROLLBACK direktif: cp ~/.hermes/memories/USER.md.bak.<ts> USER.md.
