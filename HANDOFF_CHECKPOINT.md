@@ -549,3 +549,26 @@ File hasil (Drive "Hasil jarvis"): sidang_gaya_belajar_prestasi.pdf (144KB, 15 h
 3. Fix routing akademik: pertegas L624 / pipa-routing biar academic -> academic-document-factory atau dual-output, JAUHIN powerpoint/pptxgenjs (crash). Observe dulu.
 4. (opsional) web-grounding (B): kasih jalur fetch+verify yang andal; hapus skill redundan.
 - Humanizer-default sudah aktif (L623) - reinforcement gate di pptx skill BATAL (ikut revert); kalau mau, taruh ulang nanti setelah routing akademik beres.
+
+
+
+### 12.25 FIX ROUTING AKADEMIK: pisah akademik-WORD vs akademik-PPT (2026-06-30)
+> Lanjutan setelah PR #2 MERGED ke main (semua 12.14-12.24 + skrip + skill udah di main, merge commit 5e44756). Branch baru: fix/academic-ppt-routing.
+
+#### GROUNDING (inspect read-only Acer, terbukti):
+- Total skill ASLI = 224 (find rekursif SKILL.md). `ls -1 ~/.hermes/skills/` cuma nampak 48 karena skill NESTED di subfolder kategori (productivity/, creative/, dll). -> discrepancy 48-vs-200 RESOLVED. LESSON: jangan simpulin inventaris dari ls top-level.
+- academic-document-factory ADA di productivity/academic-document-factory, TAPI DOCX-ONLY: description+pipeline+references semua DOCX/PDF (mini book/makalah/laporan, python-docx, modul formatting). grep pptx|slide|presentation|powerpoint|render_deck|deck = ZERO. Skill ini TIDAK punya kapabilitas PPT.
+- powerpoint (productivity/powerpoint) trigger sangat luas ("any .pptx involved") -> gampang menang utk request PPT.
+
+#### AKAR BUG (terbukti):
+- USER.md L624 nge-rute "defense/seminar PPT" -> academic-document-factory (MISMATCH: skill DOCX-only). Konflik dgn L626 (dual-output: akademik deck -> render_deck.py PPTX + claude-design PDF). Akibat: PPT akademik POLOS (yg gak minta dual) bisa nyasar ke powerpoint+pptxgenjs -> CRASH sharp (Illegal instruction CPU Acer). Test 12.22 = bukti (pptxgenjs crash). Test 12.23 dual-output BENAR pakai render_deck (krn L626).
+
+#### FIX (commit ini):
+- scripts/deploy_academic_ppt_routing_fix.sh: append 1 direktif "ACADEMIC ROUTING PRECEDENCE" ke USER.md (idempotent + backup, NO restart). Isi: akademik WORD/makalah/laporan/mini-book -> academic-document-factory; akademik PPT/slides/sidang -> render_deck.py (+ dual-output kalau perlu dua versi); JANGAN PPT akademik ke academic-document-factory (DOCX-only) atau powerpoint+pptxgenjs/sharp (crash); humanizer SELALU pass terakhir.
+- Bukan nulis ulang L624 (rawan) -- direktif presedensi yang menimpa, lebih aman.
+
+#### STATUS & NEXT:
+- BELUM TERBUKTI sampai deploy + uji /new: apakah PPT akademik polos sekarang konsisten ke render_deck (bukan pptxgenjs). DEPLOY: cd ~/jarvis && git fetch origin && git checkout fix/academic-ppt-routing && git pull && bash scripts/deploy_academic_ppt_routing_fix.sh ; lalu /new + "buatkan PPT sidang tentang X, editable" -> cek skill_view (harus render_deck, BUKAN powerpoint/pptxgenjs) + humanizer jalan.
+- ROLLBACK: cp USER.md.bak.<ts> USER.md.
+- SISA (prioritas lebih rendah): humanizer enforcement masih inkonsisten (ke-skip di run dual-output 12.23, nyala di run lain) -> pantau; web-grounding (B) subagent no-web; office-academic-skill + _src_academic redundan (bisa dihapus, academic-document-factory yg dipakai utk Word).
+- Lensa: ini tuning routing (lapis SOFT), bukan bikin dokumen. Dokumen2 = probe tes.
