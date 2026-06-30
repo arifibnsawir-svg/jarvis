@@ -549,3 +549,28 @@ File hasil (Drive "Hasil jarvis"): sidang_gaya_belajar_prestasi.pdf (144KB, 15 h
 3. Fix routing akademik: pertegas L624 / pipa-routing biar academic -> academic-document-factory atau dual-output, JAUHIN powerpoint/pptxgenjs (crash). Observe dulu.
 4. (opsional) web-grounding (B): kasih jalur fetch+verify yang andal; hapus skill redundan.
 - Humanizer-default sudah aktif (L623) - reinforcement gate di pptx skill BATAL (ikut revert); kalau mau, taruh ulang nanti setelah routing akademik beres.
+
+
+
+### 12.28 MISTAKE-LOGGER plugin: mistake-memory DETERMINISTIK (item C) (2026-06-30)
+> Branch: feat/mistake-logger (base a2b7260=main). Item C dari roadmap A/B/C/D. Jawab keluhan awal Arif "Jarvis selalu nyatat kesalahan biar gak ngulang".
+
+#### AKAR / KENAPA:
+- Mistake-memory selama ini ADVISORY (lessons_logger CLI + direktif USER.md) -> Jarvis bisa LUPA manggil -> kesalahan gak kecatat. Item C = bikin DETERMINISTIK.
+- Infra udah ada (terbukti grounding): hook post_tool_call di VALID_HOOKS (plugins.py:130), _emit_post_tool_call_hook fire dgn status/error_type/error_message, lessons_logger.py (action_gate/) nulis LESSONS.md, pola plugin proven (action_gate_v2).
+
+#### SOLUSI (commit ini):
+- plugins/mistake_logger/{__init__.py, plugin.yaml}: hook post_tool_call -> kalau status error/blocked/failed/timeout ATAU ada error_message -> lessons_logger.log_lesson(attempted/went_wrong/root_cause). OBSERVER-ONLY (selalu return None, gak ngeblok), FAIL-OPEN (error plugin ditelan), ANTI-SPAM (dedup in-memory per (tool,error)), KILL-SWITCH (env MISTAKE_LOGGER_OFF=1). Reuse lessons_logger, no LLM, no engine baru.
+- scripts/deploy_mistake_logger.sh: pastikan lessons_logger ada + copy plugin + py_compile + SMOKE-TEST + enable di config.yaml plugins.enabled (idempotent + backup + YAML sanity). RESTART = langkah terpisah (butuh GO, plugin discover saat startup).
+
+#### TES LOKAL (sandbox, HOME palsu) - SEMUA PASS:
+- FAIL -> ke-log (329B) ; OK -> skip (0) ; DUP -> dedup skip (0) ; OFF(kill-switch) -> skip (0). Format LESSONS.md bersih.
+
+#### STATUS & NEXT:
+- BELUM TERBUKTI sampai deploy+RESTART+uji di Acer: plugin ke-load (journalctl 'mistake_logger registered') + LESSONS.md nambah pas tool nyata error. DEPLOY: cd ~/jarvis && git fetch origin && git checkout feat/mistake-logger && git pull && bash scripts/deploy_mistake_logger.sh ; lalu (BUTUH GO) systemctl --user restart hermes-gateway.
+- Promosi lesson jadi ATURAN always-on = TETAP review Arif (anti skill-rot), bukan auto. Plugin cuma L1 auto-log fakta.
+- KILL-SWITCH: MISTAKE_LOGGER_OFF=1. ROLLBACK: rm -rf ~/.hermes/plugins/mistake_logger ; cp config.yaml.bak.<ts> ; restart.
+- MERGE ORDER saran: PR#3 -> #4 -> #5 -> PR ini (#6). Hindari konflik append checkpoint.
+
+#### REKAP ROADMAP A/B/C/D (status sesi ini):
+- D-soft (pipa-routing) DONE; A (render-path/routing akademik PR#3) DONE+proven; B (web-grounding: ddgs PR#4 web umum + academic-search PR#5 akademik) DONE+proven; C (mistake-logging deterministik PR#6 ini) DONE lokal, pending deploy+restart. Governance action-gate v2 = shadow (live nunggu data organik+GO).
