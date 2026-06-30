@@ -63,16 +63,6 @@ After creating a PPT, you **MUST** verify:
 - Export to PDF / render PNG slide 1-2 (if tools available) untuk cek visual.
 - No placeholders (TODO, lorem ipsum, [Insert here], chunk markers).
 - No empty slides without justification.
-- **Humanizer pass applied ke SEMUA prosa (no em-dash, no smart/curly quotes, no emoji kecuali diminta) SEBELUM klaim validated.**
-
-## Humanizer Gate (WAJIB, V2.1)
-Sebelum klaim PPT/deck/dokumen "validated" atau "siap", WAJIB jalanin skill `humanizer`
-sebagai FINAL style pass ke SELURUH prosa (judul, bullet, body, caption) -- terlepas renderer
-mana yang dipakai (render_deck, claude-design, office-academic-skill). Ini menegakkan USER.md
-(humanizer-default) yang terbukti SERING ke-skip di alur dokumen (cuma reliable nyala di sosmed).
-Untuk DUAL-OUTPUT: terapkan humanizer ke SUMBER konten (HTML + spec.json) SEBELUM render, biar
-PDF dan PPTX dua-duanya bersih. Kalau humanizer belum dijalankan -> status DILARANG naik ke
-`PPT_VALIDATED_BASIC`.
 
 ## Status Labels
 `PPT_DRAFT_CREATED` | `PPT_VALIDATED_BASIC` | `PPT_RENDER_CHECKED` | `PPT_NEEDS_MANUAL_REVIEW` | `PPT_FINAL_READY`
