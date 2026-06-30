@@ -487,3 +487,35 @@ Tujuan: enforce gate di LAPIS EKSEKUSI tool (gak bisa bypass). Fase: shadow -> m
   - .pptx wajib -> dekat plafon: html2pptx (HTML->editable pptx, verify fidelity) ATAU terima render_deck v2 clean (deterministik, no Node/sharp).
 - TODO routing: arahkan academic pptx ke 1 jalur DETERMINISTIK (hindari pptxgenjs+sharp yg crash di Acer). Catatan: sharp/native-binary CRASH di CPU Acer lama -> hindari skill yg butuh sharp.
 - render_deck v2 (renderer/render_deck.py) udah dibuat (preset academic/business/dark + layout big_stat/quote/timeline/section-bernomor) tapi BELUM kepakai Jarvis (kalah routing vs powerpoint/pptxgenjs). Perlu wiring eksplisit kalau jalur pptx dipilih.
+
+
+
+### 12.23 DUAL-OUTPUT TEST (sidang gaya belajar) — DIRECTIVE WORKS, web-grounding GAP terekspos (2026-06-30)
+> Nge-overtake keputusan PENDING di 12.22 (PDF cakep vs .pptx wajib). Diputuskan: KEDUANYA (dual-output). Commit bffc55b. Tes pertama dijalankan, dievaluasi dari file asli (di-download dari Drive Arif, di-render Kiro). Ini lensa TUNING, bukan penilaian dokumen.
+
+#### KEPUTUSAN TERKUNCI (overtake 12.22):
+- Sidang TIDAK harus pilih salah satu. Dari 1 konten+sumber SAMA, Jarvis bikin DUA file: (1) HTML claude-design -> PDF landscape print-ready (versi "wow"); (2) .pptx editable via render_deck.py. LARANG pptxgenjs/sharp (crash Illegal instruction CPU Acer).
+- Tool: scripts/html_to_pdf.sh (chromium headless --print-to-pdf utama + soffice fallback). deploy_dual_output.sh = deploy tool + direktif always-on "DUAL-OUTPUT DECKS" ke USER.md. Idempotent, no restart.
+
+#### TES PROBE: "presentasi sidang pengaruh gaya belajar terhadap prestasi, DUA versi PDF wow + PPTX editable, sumber Indonesia dulu"
+File hasil (Drive "Hasil jarvis"): sidang_gaya_belajar_prestasi.pdf (144KB, 15 hal), Sidang_Gaya_Belajar_Prestasi.pptx (51KB render_deck, 15 slide), sidang_gaya_belajar.pptx (161KB pptxgenjs versi LAMA, pembanding).
+
+#### FAKTA TERBUKTI (sinyal tuning POSITIF):
+1. DUAL-OUTPUT DIRECTIVE NGUBAH ROUTING. Jarvis bikin DUA file lewat tool BENAR: PDF via html_to_pdf.sh + .pptx via render_deck.py. TIDAK pakai pptxgenjs, TIDAK crash sharp. Ini persis yang 12.22 bilang belum kejadian (dulu Jarvis pilih powerpoint/pptxgenjs). Seleksi-skill utk artifact dual-output = BERHASIL diarahkan.
+2. ANTI-HALU SUMBER BEKERJA. Web gagal (lihat GAP) -> Jarvis nge-LABEL ref [6][7] sebagai NEEDS_VERIFICATION + tandai data korelasi r=0,35-0,42 sebagai "ILUSTRASI", BUKAN ngarang DOI/temuan palsu. Cite-or-abstain nahan.
+3. PDF "wow" = bagus secara visual (Kiro render PDF->PNG, lihat langsung): tema navy gradient, accent bar, flow diagram kerangka berpikir (kotak+panah+box dashed), tabel hasil header berwarna, callout box. Konfirmasi jalur HTML/CSS->PDF = Kiro-grade (selaras 12.22).
+
+#### GAP TEREKSPOS (sinyal tuning, INI yang dikerjain berikut):
+1. GAP-WEB (BESAR): web-grounding Jarvis MATI di run ini. delegate_task subagent TIDAK punya akses web; curl Scholar -> CAPTCHA; Garuda -> tidak responsif. Akibat: aturan Indonesia-first benar secara PERILAKU tapi tidak punya TOOL eksekusi -> selalu jatuh ke placeholder. Ini OPEN-item B (web-grounding skill+tool) yang belum kelar. CATATAN: tes 12.22 LAPOR dapet 5 sumber Indonesia asli, tapi run ini GAGAL -> kapabilitas web Jarvis TIDAK konsisten/andal. Perlu diagnosa di Acer: kenapa subagent gak punya web, apakah ada tool search lain yang gak kepilih, kenapa kadang dapet kadang gagal.
+2. GAP-WRITE (sedang): write-pipeline rapuh. CHUNKED WRITE PROTOCOL (max 350 baris) + heredoc parsing error + file HTML corrupt (konten di luar </body></html>) + nulis ulang berkali-kali. ~10 iterasi / 6+ menit utk 1 HTML. Jalur build HTML berkelahi dgn constraint chunked-write. Reliability signal -> pertimbangkan pola spec->render yg lebih atomik utk HTML, bukan append heredoc bertahap.
+
+#### TEMUAN KUALITAS PPTX (objektif, struktur XML; LibreOffice TIDAK ADA di sandbox Kiro AL2023 jadi gak bisa pixel-render pptx):
+- render_deck (51KB, NEW) vs pptxgenjs (161KB, OLD): shadow 0 vs 19; border/line 30 vs 78; palet navy-monokrom vs multi-warna (biru+teal+hijau); bg putih (preset academic) vs gelap (slate). Arif nilai OLD lebih "wow".
+- AKAR: (a) render_deck.py SENGAJA matiin shadow (sp.shadow.inherit=False di tiap shape); (b) Jarvis pilih preset "academic" (putih polos), padahal render_deck PUNYA preset "dark"/"business" yang lebih nendang tapi gak kepilih.
+- KLASIFIKASI: ini PRIORITAS RENDAH dalam konteks tuning (estetika artefak, bukan blocker kapabilitas). Anti-over-engineering (steering #8): JANGAN buru-buru upgrade engine desain. Yang ngebatesin Jarvis = GAP-WEB, bukan shadow slide. Kalau nanti mau, upgrade bedah render_deck (nyalain shadow + layout flow + default preset wow) = murah, tapi tahan sampai gap fungsional beres.
+
+#### STATUS & NEXT:
+- STATUS: dual-output PROVEN bekerja (routing + tool benar). Web-grounding = gap fungsional utama berikutnya.
+- NEXT (urut): (1) checkpoint ini [DONE]; (2) DIAGNOSA GAP-WEB di Acer (kenapa subagent gak web + apakah ada tool search + kenapa inkonsisten vs 12.22); (3) opsional GAP-WRITE; (4) estetika render_deck = paling akhir / kalau diminta.
+- BELUM TERBUKTI: deploy_dual_output.sh udah dijalanin di Acer atau belum (aksi runtime, gak kelihatan dari repo). Verifikasi: cek direktif "DUAL-OUTPUT DECKS" ada di ~/.hermes/memories/USER.md + html_to_pdf.sh ada di ~/.hermes/scripts/.
+- Lensa proyek: dokumen-dokumen ini = PROBE TES tuning Jarvis, bukan deliverable. Nilai dari "apa yang dibuktikan tentang perilaku Jarvis", bukan kerapian slide.
