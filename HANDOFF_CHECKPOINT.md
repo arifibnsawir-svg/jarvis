@@ -519,3 +519,33 @@ File hasil (Drive "Hasil jarvis"): sidang_gaya_belajar_prestasi.pdf (144KB, 15 h
 - NEXT (urut): (1) checkpoint ini [DONE]; (2) DIAGNOSA GAP-WEB di Acer (kenapa subagent gak web + apakah ada tool search + kenapa inkonsisten vs 12.22); (3) opsional GAP-WRITE; (4) estetika render_deck = paling akhir / kalau diminta.
 - BELUM TERBUKTI: deploy_dual_output.sh udah dijalanin di Acer atau belum (aksi runtime, gak kelihatan dari repo). Verifikasi: cek direktif "DUAL-OUTPUT DECKS" ada di ~/.hermes/memories/USER.md + html_to_pdf.sh ada di ~/.hermes/scripts/.
 - Lensa proyek: dokumen-dokumen ini = PROBE TES tuning Jarvis, bukan deliverable. Nilai dari "apa yang dibuktikan tentang perilaku Jarvis", bukan kerapian slide.
+
+
+
+### 12.24 KOREKSI: grounding penuh dari transkrip sesi + pembatalan fix salah (2026-06-30)
+> Sesi Kiro baru baca FULL transkrip sesi sebelumnya (1917 baris). Mengoreksi kesimpulan keliru yang sempat di-commit lalu di-revert. Lensa TUNING.
+
+#### KESALAHAN YANG DIKOREKSI (lesson, anti-ulang):
+- Commit 2ec45c8 (deploy_doc_routing_fix.sh + 12.24 versi lama) DI-REVERT (commit revert 4fd3666). Sebabnya: disimpulkan dari output `ls -1 ~/.hermes/skills/` yang cuma 48 folder bahwa academic-document-factory = "skill hantu" -> SALAH. Transkrip penuh + inventory ~200 skill yang di-paste user nunjukin academic-document-factory ADA dan justru skill akademik UTAMA (4-pipa, ID-native, + humanizer-protocol). office-academic-skill yang REDUNDAN (rencana hapus). Script lama nge-rename ke arah kebalik = berbahaya. Untung belum dideploy.
+- LESSON: JANGAN simpulkan "skill tidak ada" dari satu `ls` yang mungkin parsial. Verifikasi via find rekursif + cocokkan dengan inventory penuh. Discrepancy 48 vs ~200 skill antar-output BELUM diselesaikan -> wajib re-grounding sebelum sentuh routing.
+
+#### STATE ASLI (terbukti dari transkrip, semua di PR #2 / branch feat/action-gate-v2-plugin, BELUM merge main):
+- Action-gate v2 shadow live + tuned + compound-aware (12.14-12.16). Event log Acer APPENDED.
+- pipa-routing D-soft terbukti behavioral (12.17-12.18).
+- render_deck v2 design-system (12.19).
+- humanizer-default USER.md L623 (12.21) - kebukti fire (skill_view: humanizer di deck).
+- artifact-routing L624, academic-sourcing L625 (kebukti: 5 sumber Indonesia asli), dual-output L626 + html_to_pdf.sh + render_deck (12.22, commit bffc55b).
+- WIN: auto-select "wow" -> claude-design JALAN otomatis tanpa disuruh.
+
+#### BUG ASLI yang masih kebuka (prioritas tuning sebenarnya):
+1. ROUTING AKADEMIK MELESET: pas auto-select PPT sidang, Jarvis pilih skill `powerpoint` -> pptxgenjs (CRASH sharp "Illegal instruction" di CPU Acer), BUKAN academic-document-factory / render_deck / jalur dual-output. Directive L624 belum cukup kuat utk lane akademik (kalah tarikan "PPT editable -> powerpoint"). INI bug doc-routing yang ASLI.
+2. WEB-GROUNDING INKONSISTEN: delegate_task subagent TIDAK punya akses web; curl Scholar=CAPTCHA, Garuda=mati. Kadang dapet sumber (12.22), kadang gagal+placeholder (dual-output run). = item B belum kelar.
+3. PPTX < HTML (plafon engine): editable pptx (render_deck) selalu di bawah HTML/PDF (claude-design). dual-output = kompromi. User masih rasa pptx "menurun".
+4. office-academic-skill + _src_academic = REDUNDAN, belum dihapus (rencana: rm -rf, pakai academic-document-factory).
+
+#### NEXT (urut):
+1. MERGE PR #2 ke main - terus ketunda sepanjang sesi lama, PALING penting (persist + kebaca sesi depan).
+2. Re-grounding inventory skill Acer (resolve 48 vs ~200) - find rekursif SKILL.md.
+3. Fix routing akademik: pertegas L624 / pipa-routing biar academic -> academic-document-factory atau dual-output, JAUHIN powerpoint/pptxgenjs (crash). Observe dulu.
+4. (opsional) web-grounding (B): kasih jalur fetch+verify yang andal; hapus skill redundan.
+- Humanizer-default sudah aktif (L623) - reinforcement gate di pptx skill BATAL (ikut revert); kalau mau, taruh ulang nanti setelah routing akademik beres.
