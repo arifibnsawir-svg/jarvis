@@ -549,3 +549,29 @@ File hasil (Drive "Hasil jarvis"): sidang_gaya_belajar_prestasi.pdf (144KB, 15 h
 3. Fix routing akademik: pertegas L624 / pipa-routing biar academic -> academic-document-factory atau dual-output, JAUHIN powerpoint/pptxgenjs (crash). Observe dulu.
 4. (opsional) web-grounding (B): kasih jalur fetch+verify yang andal; hapus skill redundan.
 - Humanizer-default sudah aktif (L623) - reinforcement gate di pptx skill BATAL (ikut revert); kalau mau, taruh ulang nanti setelah routing akademik beres.
+
+
+
+### 12.27 ACADEMIC-SEARCH SKILL: cari + verifikasi sumber ilmiah (fix halu sumber, akar sebenarnya) (2026-06-30)
+> Branch: feat/academic-search (base a2b7260=main). Mengganti pendekatan ddgs-only (PR#4) untuk lane AKADEMIK - jauh lebih kuat. Lensa tuning lapis SOFT (intake/sumber). Lane joki kuliah.
+
+#### AKAR (terbukti, koreksi pemahaman):
+- Web halu sumber BUKAN cuma karena search_backend kosong. Lebih dalam: (a) agent utama gak punya tool web_search (cuma delegate_task), (b) subagent web HALU (link garuda.kemdikbud.go.id MATI - domain pindah ke garuda.kemdiktisaintek.go.id sejak kementerian pecah; ID dokumen dikarang), (c) TIDAK ada step verify-resolve. ddgs (PR#4) perlu utk web umum, tapi utk AKADEMIK kurang.
+- Google Scholar bot-hostile (CAPTCHA) -> jalur scrape Scholar gampang gagal -> halu. Untuk AGENT, jalur andal = API ilmiah (OpenAlex/Crossref/Semantic Scholar/PubMed - no-key, terstruktur, DOI resolve).
+
+#### SOLUSI (terbukti via tes sandbox pakai script repo ASLI):
+- Adopsi SCOPED dari zLanqing/codex-claude-academic-skills (MIT): paper-lookup + literature-review + citation-management -> skills/academic-search/ (vendored ke repo, ~400K, LICENSE.upstream dijaga). SKIP matlab/qutip/pymatgen dll (anti-over-engineering).
+- Model: COVERAGE (banyak DB: Scholar + OpenAlex + Crossref + Semantic Scholar + PubMed/arXiv + Garuda/SINTA) + KREDIBILITAS 100% (verify WAJIB tiap sitasi).
+- BUKTI verify gate (verify_citations.py repo asli): DOI real 10.30998/formatif.v5i2.336 & 10.33373/kop.v2i2.302 -> LOLOS + sitasi APA auto (Cleopatra 2015 Formatif/UNINDRA; Marpaung 2016 KOPASTA Jurnal Bimbingan Konseling - pas lane BK). DOI halu -> DITOLAK. doi_to_bibtex.py -> BibTeX lengkap (ISSN/publisher).
+- Deps: requests + scholarly (no-key; Semantic Scholar key opsional). NO native binary -> aman CPU Acer (beda sharp/agent-browser).
+
+#### FILE (commit ini):
+- skills/academic-search/{SKILL.md, paper-lookup/, literature-review/, citation-management/, LICENSE.upstream}. SKILL.md Hermes-style: workflow search-wide -> dedup/rank -> VERIFY wajib -> cite-only-verified; Indonesia-first; Scholar best-effort + multi-DB; aturan keras anti-halu (jangan sajikan link tanpa verify, jangan Scholar-only).
+- scripts/deploy_academic_search.sh: copy skill + pip requests/scholarly + verifikasi frontmatter + SMOKE-TEST verify_citations + wire direktif "ACADEMIC SOURCE SEARCH" ke USER.md + FIX domain Garuda/SINTA mati (kemdikbud->kemdiktisaintek). Idempotent + backup, no restart.
+
+#### STATUS & NEXT:
+- BELUM TERBUKTI sampai deploy+uji /new di Acer: (a) Jarvis manggil academic-search + verify sebelum kutip; (b) Google Scholar via scholarly jalan dari IP Acer (datacenter sandbox kemungkinan CAPTCHA - makanya diuji di Acer). DEPLOY: cd ~/jarvis && git fetch origin && git checkout feat/academic-search && git pull && bash scripts/deploy_academic_search.sh ; lalu /new + "cari 5 jurnal Indonesia tentang X, verifikasi linknya" -> cek link RESOLVE (bukan halu) + cite-or-abstain.
+- ROLLBACK: cp USER.md.bak.<ts> USER.md ; rm -rf ~/.hermes/skills/academic-search.
+- HUBUNGAN PR: PR#4 (ddgs) = web umum, tetap berguna; academic-search = khusus akademik (lebih kuat). Dua-duanya komplementer. agent-browser (vercel-labs) = lapis BROWSE, ditunda (redundan + risiko CPU).
+- MERGE ORDER saran: PR#3 (academic routing) -> PR#4 (ddgs) -> PR ini (academic-search), hindari konflik append HANDOFF_CHECKPOINT.md.
+- Catatan kredibilitas joki: verify gate = jaminan 100% (fake DOI ditolak otomatis); coverage multi-DB = mempermudah (banyak sumber). Sesuai requirement Arif.
