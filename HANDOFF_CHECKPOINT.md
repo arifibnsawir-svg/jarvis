@@ -549,3 +549,31 @@ File hasil (Drive "Hasil jarvis"): sidang_gaya_belajar_prestasi.pdf (144KB, 15 h
 3. Fix routing akademik: pertegas L624 / pipa-routing biar academic -> academic-document-factory atau dual-output, JAUHIN powerpoint/pptxgenjs (crash). Observe dulu.
 4. (opsional) web-grounding (B): kasih jalur fetch+verify yang andal; hapus skill redundan.
 - Humanizer-default sudah aktif (L623) - reinforcement gate di pptx skill BATAL (ikut revert); kalau mau, taruh ulang nanti setelah routing akademik beres.
+
+
+
+### 12.26 FIX WEB-GROUNDING: set search_backend=ddgs (akar halu sumber) (2026-06-30)
+> Branch: feat/web-search-ddgs (base a2b7260=main). Independen dari fix/academic-ppt-routing (PR#3). Lensa tuning lapis SOFT (intake/web).
+
+#### AKAR (terbukti via inspect read-only Acer):
+- config.yaml: web.backend=firecrawl (butuh FIRECRAWL_API_KEY), web.search_backend='' KOSONG, web.extract_backend='' KOSONG.
+- SEMUA env key search KOSONG (TAVILY/SERPER/BRAVE/BING/SEARCHAPI/GOOGLE_CSE/SEARXNG).
+- Backend didukung Hermes: brave_free(key,2k/bln), ddgs(DuckDuckGo,NO key), searxng(self-host), firecrawl/tavily/exa/parallel(key). Fallback: search_backend->backend->first available by env. Karena semua kosong -> TIDAK ada search yang jalan.
+- toolset_distributions.py (web:100/55/90/30..) = BUKAN production (utk data-generation runs) -> red herring.
+- arif-realtime-evidence-protocol-v2 = blok prompt/memory, BUKAN skill terinstall (kosong di ~/.hermes/skills).
+- AKIBAT: tiap search -> scraping mentah (curl Scholar=CAPTCHA, Garuda=timeout) atau subagent tanpa web -> HALU sumber. Inkonsisten (12.22/academic test berhasil; 12.23 dual-output gagal).
+
+#### FIX (commit ini):
+- scripts/deploy_web_search_ddgs.sh: set web.search_backend='ddgs' (sed presisi 1 baris, jaga komentar) + pip install ddgs di venv + YAML sanity + verifikasi import & 1 test search. Backup config. Idempotent.
+- Pilih ddgs (no-key) dulu = win cepat & gratis (anti-over-engineering). Upgrade ke Tavily/Brave (ber-key, kualitas lebih tinggi) gampang nanti = ganti 1 baris + key.
+
+#### CATATAN PENTING:
+- Edit config.yaml = CORE protected -> Jarvis WAJIB minta approval (action-gate jalan, itu benar). Arif approve.
+- config cached by mtime -> mungkin kebaca tanpa restart; kalau web_search masih 'no backend' -> restart gateway (BUTUH GO, ~210s).
+- ROLLBACK: cp config.yaml.bak.<ts> config.yaml.
+
+#### STATUS & NEXT:
+- BELUM TERBUKTI sampai deploy+uji: web_search beneran balikin URL kredibel (bukan halu) di /new. Uji: "cari jurnal Indonesia tentang X, sertakan link" -> harus link resolve, bukan ngarang.
+- vercel-labs/agent-browser DITINJAU: itu lapis BROWSE (automation Chrome, Rust CLI), BUKAN SEARCH. Redundan dgn browser bawaan Hermes (camofox/browser-use) + risiko CPU Acer (binary native, kayak sharp). DITUNDA -> kandidat upgrade BROWSE kalau browser bawaan kebukti kurang. Bukan obat halu sumber (gap = SEARCH).
+- 3 lapis web: SEARCH (query->URL, BARU difix=ddgs) | BROWSE (URL->render, udah ada camofox/browser-use) | EXTRACT (firecrawl/web_extract, ada tapi firecrawl butuh key).
+- MERGE ORDER saran: PR#3 (academic-ppt-routing) dulu, baru PR ini (hindari konflik append HANDOFF_CHECKPOINT.md).
