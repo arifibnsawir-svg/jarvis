@@ -352,3 +352,200 @@ Tujuan: enforce gate di LAPIS EKSEKUSI tool (gak bisa bypass). Fase: shadow -> m
 - git push main non-force=AUTO; force-push main=NEEDS_APPROVAL; restart protected svc=AUTO_OK_W_BACKUP(+healthcheck+rollback);
   modify/delete protected paths=NEEDS_APPROVAL; rm protected/tamper-safety/exfil-secret=REFUSE; unknown=NEEDS_APPROVAL.
 - Mistake-memory: auto-log gagal/refuse/rollback/koreksi ke LESSONS.md; promosi jadi aturan = review Arif (anti skill-rot).
+
+
+
+### 12.14 ACTION-GATE v2 — WIRING LIVE DI SHADOW (2026-06-29 ~15:57 WIB) — DONE (shadow), belum enforce
+> Nge-overtake 12.13 "ACTION-GATE v2 IN-PROGRESS". Wiring ke chokepoint eksekusi tool SELESAI di mode shadow.
+
+#### PENDEKATAN FINAL (berubah dari rencana 12.13):
+- BUKAN patch core. Pakai **PLUGIN `action_gate_v2`** (hook `pre_tool_call`).
+- `tool_executor.py` di-RESTORE ke CLEAN (patch salah-tempat dicopot; sha256 `50da34d16e2cb790df5d3c3d66fa2a00f18316eee182c79e6d0ecfb424590a99`).
+- Kenapa plugin menang: `get_pre_tool_call_block_message()` dipanggil di SEMUA jalur tool — concurrent `tool_executor.py:274`, sequential `tool_executor.py:749`, `invoke_tool` `agent_runtime_helpers.py:1634` → coverage PENUH tanpa nyentuh core. `pre_tool_call` ada di `VALID_HOOKS` (plugins.py:129).
+
+#### FILE (repo, branch `feat/action-gate-v2-plugin`, PR #2):
+- `plugins/action_gate_v2/plugin.yaml` + `__init__.py` = adapter tipis: `pre_tool_call(tool_name,args)` -> `~/.hermes/action_gate/gate_hook.gate_tool(...)`. shadow/mock -> return None (observe). live -> `{"action":"block"}` kalau NEEDS_APPROVAL/REFUSE. FAIL-OPEN di shadow.
+- `scripts/deploy_action_gate_v2_plugin.sh` = deploy idempotent (sinkron engine + copy plugin + py_compile + smoke-test + ENABLE di config.yaml). TIDAK restart.
+
+#### ROOT CAUSE plugin gak load (pertama kali) + FIX:
+- Discovery = **OPT-IN** via `config.yaml` key `plugins.enabled` (plugins.py:1174-1178: enabled=False -> register() gak jalan). Plugin baru WAJIB didaftarin.
+- FIX: tambah `action_gate_v2` ke `plugins.enabled` (deploy script step [5], idempotent, +backup config.yaml.bak.*, +YAML sanity check). 
+
+#### BUKTI LIVE (shadow):
+- Restart 15:56 (PID 465085, port 9119 hidup). Log: "Plugin action_gate_v2 registered hook: pre_tool_call". Discovery: 41 found, 34 enabled.
+- `~/.hermes/action_gate/decisions.jsonl` nambah entri REAL dari tool-call Jarvis: read-only -> AUTO_OK/SAFE; `systemctl restart` -> AUTO_OK_W_BACKUP; protected path -> NEEDS_APPROVAL. SEMUA `decision_mode:shadow`, `allow_execution:true` (observe-only, zero blocking).
+
+#### STATUS & NEXT:
+- STATUS: shadow OBSERVE-ONLY LIVE. Zero production impact. BELUM enforce.
+- BELUM TERBUKTI: akurasi klasifikasi di tugas NYATA & BERAGAM (sample baru ~13 entri, mayoritas command infra sendiri). Sebelum live: pastikan gak false-block kerja legit (nulis ke outbox/workspace, edit file biasa).
+- NEXT (urut): (1) observe shadow beberapa hari di tugas beragam; (2) opsional dry-run accuracy sweep via `python3 ~/.hermes/action_gate/action_gate.py "<cmd>"` (klasifikasi murni, TANPA eksekusi); (3) baru `ACTION_GATE_MODE=live` di env gateway + restart buat enforce.
+- KILL-SWITCH: `ACTION_GATE_MODE=off`. ROLLBACK plugin: `rm -rf ~/.hermes/plugins/action_gate_v2` + restart. ROLLBACK config: `cp ~/.hermes/config.yaml.bak.<ts> ~/.hermes/config.yaml`.
+- ANTI-FALSE-READY: "shadow live" != "DONE/enforce". Naik live butuh bukti shadow bersih + GO Arif.
+
+
+
+### 12.15 ACTION-GATE v2 — TUNING SHADOW + TEMUAN PRE-LIVE (2026-06-29 ~16:1x WIB)
+> Dari dry-run akurasi + distribusi trafik shadow. Tetap SHADOW; tuning aman aja, JANGAN live dulu.
+
+#### BUKTI (dry-run klasifikasi murni, tanpa eksekusi):
+- Kasus bahaya AKURAT 8/8: rm-protected & exfil .env -> REFUSE; force-push & pip -> NEEDS_APPROVAL; read-only & tulis-outbox -> AUTO_OK.
+- Default-deny: command dev/build tak-dikenal (python3/node/make/tar/jq/awk/docker/./run.sh) -> NEEDS_APPROVAL.
+- Distribusi 17 entri shadow (TERCEMAR command diagnostik sendiri, blm representatif): AUTO_OK 3, AUTO_OK_W_BACKUP 5, NEEDS_APPROVAL 5, REFUSE 4.
+- Command majemuk (loop/;/heredoc) diklasifikasi sbg 1 blob via substring -> dry-run loop sendiri kena REFUSE krn stringnya memuat "rm -rf config.yaml" (errs-safe, tapi nunjukin batas regex-gate).
+
+#### TUNING SUDAH DIKERJAIN (commit di branch, SHADOW = zero-risk):
+- `action_gate.py` section 7: READ-list diperluas (echo/printf/env/jq/cut/sort/uniq/tr/column/basename/dirname/realpath/readlink/file/diff/cmp/type/id/groups/hostname/uptime/free/tree/less/more/rg/git remote) -> util baca jelas-aman jadi AUTO_OK (turunin friction).
+- TUTUP LUBANG: kalau ada redirect '>' -> TIDAK lagi dianggap read-only, jatuh ke section 8 (write) biar path-nya dinilai. Fix `cat rahasia > ~/.hermes/config.yaml` yg dulu lolos AUTO_OK -> sekarang NEEDS_APPROVAL.
+- Interpreter (python3/bash/sh/node/make/...) SENGAJA TETAP NEEDS_APPROVAL. Test lokal 17/17 PASS.
+
+#### MUST-FIX / PUTUSKAN SEBELUM LIVE (jangan live tanpa ini beres):
+1. INTERPRETER BYPASS: auto-allow `python3 -c "..."`/`bash -c` = kode arbitrer lolos gate pola. Keputusan Arif: (a) biarin NEEDS_APPROVAL (aman, friction) atau (b) skema lain (mis. cuma allow di workspace + backup). DEFAULT sekarang = (a).
+2. COMMAND MAJEMUK: [DONE 2026-06-29] split top-level (;/&&/||/|/newline) hormati kutip, heredoc tak dipecah, verdict PALING KETAT menang. Nutup prefix-masking ('echo x && ./run.sh' dulu AUTO_OK -> NEEDS_APPROVAL) & 'cat f | tee protected' (dulu lolos read -> NEEDS_APPROVAL). Test 21/21 PASS. Implement di classify_command (wrapper) + _classify_single (body lama).
+3. FRICTION NYATA: kumpulin trafik shadow ORGANIK (bukan command diagnostik) bbrp hari -> ukur % NEEDS_APPROVAL pada kerja legit -> tuning dari DATA, bukan tebakan.
+
+#### KEPUTUSAN: tetap SHADOW. Live cuda setelah (1) diputuskan, friction organik terukur OK, dan GO Arif.
+
+
+
+### 12.16 LESSON: VERIFY LIVENESS GATE != PORT 9119 (2026-06-29 ~16:55) + shadow final CONFIRMED
+- KOREKSI asumsi Bagian 1: port 9119 = proses **DASHBOARD** (`hermes dashboard --port 9119`, PID lama, hidup sejak boot). Proses **GATEWAY messaging** (`python -m hermes_cli.main gateway run`) = PROSES TERPISAH, ini yg restart pas reload plugin & TEMPAT action-gate hook fire.
+- JEBAKAN: cek `ss -ltnp | grep 9119` -> nunjukin PID dashboard, BUKAN gateway. PID listener 9119 beda dari PID yg nge-load plugin = NORMAL (dua proses beda), bukan error.
+- CARA VERIFY GATE LIVE yg BENAR (behavioral, anti-bingung-PID):
+  - proses gateway: `pgrep -af "hermes_cli.main gateway run"`.
+  - bukti engine action-gate kepake di proses yg melayani: `grep -c "majemuk" ~/.hermes/action_gate/decisions.jsonl` + cek timestamp entri > waktu restart. Marker `[majemuk]` cuma diproduksi engine compound-aware -> bukti ruleset final aktif.
+- STATUS FINAL (terbukti): ruleset action-gate final (READ-list tuned + redirect-fix + compound-aware) AKTIF di gateway PID 466207 sejak 16:51. Shadow, allow_execution:true semua. 4 entri `[majemuk]` post-restart = bukti behavioral.
+- PARKIR: kumpulin trafik ORGANIK bbrp hari -> baca distribusi -> whitelist data-driven -> keputusan interpreter -> baru live (GO Arif).
+
+
+
+### 12.17 PIPA-ROUTING SKILL (D-soft) — dibuat, siap deploy (2026-06-29)
+> Lanjutan dari pertanyaan Arif "router biar model+jalur bener" (pilihan D). D dipecah: soft (skill) vs hard (infra).
+
+- KEPUTUSAN: garap **D-soft** (skill pipa-routing) dulu; **D-hard** (routing combo per-request di 9router) DITUNDA sampai (a) kebukti gateway dukung override model per-request, (b) ada data jarvis-agent kurang per-tugas. Anti-over-engineering.
+- D-soft = `skills/pipa-routing/SKILL.md` (4610B) + direktif always-on di USER.md (pola deploy_alwayson.sh). Router PERILAKU: scan niat -> pilih KEDALAMAN (trivial/riset/artefak, adaptive) -> pilih PENDEKATAN per artifact_type (kode; dokumen/slide=Structure-Before-Render JANGAN one-shot; web=cite-or-abstain; audit=gate). Router TIDAK pernah blok/vonis (separation router!=gate). precedes neuro-arc.
+- Kenapa ini fondasi: ini "Router yang menentukan kedalaman" yg dirujuk skill neuro-arc tapi belum ada. Langsung nolong 2 pain Arif: web-halu (cite-or-abstain) & doc one-shot (Structure-Before-Render mindset).
+- BATAS JUJUR: skill ini memperbaiki PENDEKATAN. Doc kelar total tetap butuh A (wiring renderer python-docx/pptx, OPEN item #6). Web kelar butuh tool search + verify (B). Skill = fondasi, bukan solusi penuh.
+- Deploy: `scripts/deploy_pipa_routing.sh` (copy SKILL.md + inject direktif USER.md, idempotent+backup, validasi frontmatter). TIDAK restart; aktif di SESSION BARU (/new). ROLLBACK: restore USER.md.bak + rm -rf skills/pipa-routing.
+- Repo: branch feat/action-gate-v2-plugin (PR #2). TEST: behavioral di session baru (kasih tugas doc -> harus minta spec dulu/structure; kasih tugas web -> harus cite-or-abstain, gak ngarang sumber). BELUM TERBUKTI sampai diuji di session nyata.
+- SISA OPEN (urut rekomendasi): A wiring renderer (doc/ppt) -> B web-grounding skill+tool -> C deterministik mistake-logging via post_tool_call hook -> D-hard combo routing (kalau perlu). Mistake-memory (LESSONS.md) saat ini = CLI + direktif advisory (belum deterministik).
+
+
+
+### 12.18 PIPA-ROUTING D-soft — TERBUKTI (behavioral) + temuan Acer>repo (2026-06-29 ~17:30)
+- Frontmatter SKILL.md sempat GAGAL yaml.safe_load (ada ': ' di description tak-dikutip) -> FIX: description di-quote + ':' inline jadi '-'. Verified parse OK pakai PyYAML asli (neuro-arc/arsi/pipa-routing semua OK). Redeploy: RESULT_FRONTMATTER OK.
+- UJI BEHAVIORAL (session baru):
+  - DOC ("bikin slide 5 hal"): Jarvis skill_view pipa-routing+neuro-arc+pptx-slides-creation-guard -> struktur dulu -> execute_code python-pptx render -> terminal ls verify (32KB). = Structure-Before-Render JALAN (bukan one-shot). PASS.
+  - WEB ("data 2025" lalu ralat "2026"): untuk 2026 Jarvis ABSTAIN ("belum terkonfirmasi dipublikasikan"), pisah FAKTA TERVERIFIKASI vs BELUM TERBUKTI + NEXT SAFE ACTION, gak ngarang angka. cite-or-abstain JALAN. PASS inti.
+- CAVEAT JUJUR (belum kelar):
+  1. WEB drift angka: sumber sama (DataReportal) dua jawaban beda (221,6jt/79,5% vs 212,9jt/77,0%) -> salah-atribusi APJII->DataReportal. cite-or-abstain nangkep yg besar, detail angka masih meleset. B perlu aturan "angka WAJIB dikutip dari halaman ter-fetch, bukan ingatan".
+  2. DOC: file ke-render+verify ADA, tapi ISI/akurasi belum dinilai (perlu buka PPTX).
+- TEMUAN PENTING (koreksi asumsi repo-based): Acer punya skill yg TIDAK ADA di repo: `pptx-slides-creation-guard`, `arif-realtime-evidence-protocol-v2` (+ kemungkinan lain). Penilaian "renderer gak wired / web belum dibangun" tadi BASI (itu dari repo). Acer lebih maju.
+  -> RISIKO: skill-skill itu cuma di Acer, gak ke-backup/version-control. GAP: perlu tarik semua ~/.hermes/skills/* ke repo (backup + bisa diff/iterate).
+- REVISI PRIORITAS SISA: (0) BACKUP skill Acer->repo dulu (cheap, anti-kehilangan + bikin penilaian akurat). (B') perketat web fact-binding (angka dari fetched page). (A') nilai kualitas pptx-slides-creation-guard yg udah ada, baru perbaiki kalau perlu (jangan bikin ulang renderer dari nol -> over-engineering). (C) mistake-logging deterministik via post_tool_call.
+
+
+
+### 12.19 PPTX DESIGN-SYSTEM RENDERER — TERBUKTI VISUAL (2026-06-29 ~20:10)
+- Masalah: output pptx Jarvis "standar banget" (hitam-putih, font default, gap mati) -> guard pptx cuma atur struktur/keamanan, GAK atur desain; render ad-hoc python-pptx blank.
+- FIX (live & verified visual via screenshot WPS): `renderer/render_deck.py` (deploy ke ~/.hermes/scripts/) = design-system 16:9: accent bar atas, garis bawah judul, bullet marker biru, bold lead keyword ("Lead: detail"), layout section (band biru), two_col, closing, footer+nomor halaman, palet #2563EB/#1E40AF/#EEF2FF. Deterministik, anti-halu image.
+- skill `pptx-slides-creation-guard` V2: WAJIB render lewat render_deck.py (spec JSON -> render), larang build-from-blank. Skill lama di-backup + di-mirror ke repo.
+- BUKTI: deck "manfaat tidur" 7 slide ke-render ulang -> Arif lihat di WPS -> VERDICT naik kelas dari "standar" jadi clean-profesional. PASS.
+- SISA OPSIONAL (bukan keharusan): ikon/ilustrasi/gambar (butuh set ikon kurasi, jaga anti-halu), heading font lebih tegas, tema varian. JANGAN bikin engine desain raksasa (over-engineering) sebelum diminta.
+- BELUM DIUJI: skill V2 wiring otomatis (apakah Jarvis di /new beneran keluarin spec -> render_deck.py sendiri, bukan ad-hoc). Uji: /new lalu minta bikin deck dari nol.
+- CARA KIRIM FILE: render via command langsung TIDAK auto-kirim ke Telegram; minta Jarvis "kirim file <path> sebagai dokumen" (alur normal pptx-creation yg auto-attach).
+
+
+
+### 12.20 ADOPSI office-academic-skill (lane joki kuliah) — DEPLOYED, pending uji (2026-06-29)
+- Sumber: zLanqing/codex-claude-academic-skills (MIT). SCOPED: cuma `office-academic-skill` (skip scientific-toolkit & research-writing & guizang/AGPL). Alasan pilih: output .pptx/.docx EDITABLE + anti-fabrikasi + tag sumber + template-clone + overflow scan = pas buat tugas akademik.
+- Deploy via scripts/deploy_office_academic_skill.sh: clone upstream -> copy folder ke ~/.hermes/skills/office-academic-skill (2.7M, references+scripts+agents) -> sisip override BAHASA INDONESIA (upstream default China) -> install deps venv (python-pptx/Pillow/PyMuPDF/pypdf) -> verifikasi. commit upstream 7ed6377.
+- VERIFIED teknis: frontmatter name=office-academic-skill, template_tools import OK, override ID kesisip (SKILL.md baris 5-6). LICENSE.upstream dijaga (atribusi MIT).
+- KLASIFIKASI ARSITEKTUR (penting, jangan kabur): skill ini = lapis PRODUKSI artefak (keluarga A', sodara render_deck.py), BUKAN router D. D cuma kesentuh nanti via +1 rute di pipa-routing.
+- BELUM TERBUKTI: (a) Hermes loader auto-surface skill ini (skill_view) di /new; (b) output beneran Indonesia+editable; (c) DISAMBIGUASI vs pptx-slides-creation-guard/render_deck (sekarang ADA 2 jalur pptx -> rawan Jarvis bingung pilih). Uji /new dulu, baru wiring pipa-routing buat misahin: akademik/template -> office-academic-skill; deck cepat -> render_deck; pamer HTML -> (nanti) guizang.
+- ROLLBACK: rm -rf ~/.hermes/skills/office-academic-skill (+ _src_academic).
+
+
+
+### 12.21 HUMANIZER-DEFAULT done + BOTTLENECK = SKILL SELECTION (2026-06-29 ~23:45)
+- HUMANIZER jadi DEFAULT semua artefak: direktif di USER.md L623 (via scripts/deploy_humanizer_default.sh). KEBUKTI jalan: tes deck HTML -> Jarvis `skill_view: humanizer`. (catatan: script sempat lapor false-FAIL krn MARK apostrof; udah difix, direktif tetap tertulis L623). Humanizer kini 3 lapis: sosmed (L5/508/510) + akademik (L564/568/570/579) + semua artefak (L623).
+- TEMUAN UTAMA (kebukti 3x): masalah BUKAN kurang skill (Acer ~200 skill, banyak bagus: academic-document-factory, claude-design, popular-web-designs, baoyu-infographic, powerpoint, office-document-ops). Masalah = **SELEKSI/ROUTING**: Jarvis freehand / ambil guard generik, GAK milih spesialis.
+  - PPT akademik -> pptx-slides-creation-guard/render_deck (bukan academic-document-factory)
+  - Word -> document-preservation-guard + docx ad-hoc
+  - wow HTML -> write_file freehand (bukan claude-design/popular-web-designs)
+- KONSEKUENSI: nambah skill (guizang/office-academic) PERCUMA tanpa fix routing. office-academic-skill REDUNDAN vs academic-document-factory (saran hapus). guizang DITAHAN.
+- NEXT (prioritas): wiring pipa-routing (D) mapping eksplisit intent->skill spesialis + humanizer selalu. Sebelum nunjuk skill "wow", VERIFIKASI kualitas output (freehand HTML Jarvis vs claude-design) via screenshot browser (HTML content:// gak bisa diakses Kiro; user buka di browser + kirim PNG).
+- Skill discovery: config skill_dirs kosong = SEMUA skill di ~/.hermes/skills/ auto-available (skill.py iterdir + auto_load). Jadi bukan masalah discovery, murni SELEKSI.
+
+
+
+### 12.22 ACADEMIC SOURCING works + PPTX quality ceiling = HTML vs pptx (2026-06-30 ~01:00)
+- ACADEMIC SOURCING rule (USER.md L625) JALAN: tes PPT sidang -> Jarvis delegate_task cari sumber -> dapet 5 sumber Indonesia ASLI (Bire 2014 Jurnal Kependidikan, Ghufron&Risnawita 2012, Hartati 2015 Formatif, Papilaya&Huliselan 2016 J.Psikologi Undip, Widayanti 2013 ERUDIO), dikutip di Daftar Pustaka. Indonesia-first + no-halu = TERBUKTI. Learning 1260e8e6.
+- MASALAH SELEKSI (lagi): Jarvis utk PPT sidang pilih skill `powerpoint` -> bikin **pptxgenjs (Node.js)** freehand, BUKAN render_deck.py v2 kita. Bahkan nyangkut crash `sharp` (CPU Acer lama: "Illegal instruction"), workaround buang sharp. Jadi render_deck v2 gak kepake. Ada 2 jalur pptx bersaing (powerpoint/pptxgenjs vs render_deck) -> routing belum misahin.
+- AKAR "belum seperti Kiro buat": kualitas tinggi Kiro = jalur HTML/CSS (book via WeasyPrint, deck parfum via claude-design). HTML/CSS jauh lebih ekspresif dari engine pptx mana pun (python-pptx ATAU pptxgenjs) -> PPTX punya PLAFON. pptxgenjs (161K, cards/shadow/flow) udah "lebih baik" dari render_deck v1 tapi tetap di bawah HTML.
+- KEPUTUSAN PENDING (nentuin arah): sidang WAJIB .pptx editable, atau PDF cakep diterima?
+  - PDF ok -> HTML/CSS -> PDF (Kiro-grade, achievable now). REKOMENDASI.
+  - .pptx wajib -> dekat plafon: html2pptx (HTML->editable pptx, verify fidelity) ATAU terima render_deck v2 clean (deterministik, no Node/sharp).
+- TODO routing: arahkan academic pptx ke 1 jalur DETERMINISTIK (hindari pptxgenjs+sharp yg crash di Acer). Catatan: sharp/native-binary CRASH di CPU Acer lama -> hindari skill yg butuh sharp.
+- render_deck v2 (renderer/render_deck.py) udah dibuat (preset academic/business/dark + layout big_stat/quote/timeline/section-bernomor) tapi BELUM kepakai Jarvis (kalah routing vs powerpoint/pptxgenjs). Perlu wiring eksplisit kalau jalur pptx dipilih.
+
+
+
+### 12.23 DUAL-OUTPUT TEST (sidang gaya belajar) — DIRECTIVE WORKS, web-grounding GAP terekspos (2026-06-30)
+> Nge-overtake keputusan PENDING di 12.22 (PDF cakep vs .pptx wajib). Diputuskan: KEDUANYA (dual-output). Commit bffc55b. Tes pertama dijalankan, dievaluasi dari file asli (di-download dari Drive Arif, di-render Kiro). Ini lensa TUNING, bukan penilaian dokumen.
+
+#### KEPUTUSAN TERKUNCI (overtake 12.22):
+- Sidang TIDAK harus pilih salah satu. Dari 1 konten+sumber SAMA, Jarvis bikin DUA file: (1) HTML claude-design -> PDF landscape print-ready (versi "wow"); (2) .pptx editable via render_deck.py. LARANG pptxgenjs/sharp (crash Illegal instruction CPU Acer).
+- Tool: scripts/html_to_pdf.sh (chromium headless --print-to-pdf utama + soffice fallback). deploy_dual_output.sh = deploy tool + direktif always-on "DUAL-OUTPUT DECKS" ke USER.md. Idempotent, no restart.
+
+#### TES PROBE: "presentasi sidang pengaruh gaya belajar terhadap prestasi, DUA versi PDF wow + PPTX editable, sumber Indonesia dulu"
+File hasil (Drive "Hasil jarvis"): sidang_gaya_belajar_prestasi.pdf (144KB, 15 hal), Sidang_Gaya_Belajar_Prestasi.pptx (51KB render_deck, 15 slide), sidang_gaya_belajar.pptx (161KB pptxgenjs versi LAMA, pembanding).
+
+#### FAKTA TERBUKTI (sinyal tuning POSITIF):
+1. DUAL-OUTPUT DIRECTIVE NGUBAH ROUTING. Jarvis bikin DUA file lewat tool BENAR: PDF via html_to_pdf.sh + .pptx via render_deck.py. TIDAK pakai pptxgenjs, TIDAK crash sharp. Ini persis yang 12.22 bilang belum kejadian (dulu Jarvis pilih powerpoint/pptxgenjs). Seleksi-skill utk artifact dual-output = BERHASIL diarahkan.
+2. ANTI-HALU SUMBER BEKERJA. Web gagal (lihat GAP) -> Jarvis nge-LABEL ref [6][7] sebagai NEEDS_VERIFICATION + tandai data korelasi r=0,35-0,42 sebagai "ILUSTRASI", BUKAN ngarang DOI/temuan palsu. Cite-or-abstain nahan.
+3. PDF "wow" = bagus secara visual (Kiro render PDF->PNG, lihat langsung): tema navy gradient, accent bar, flow diagram kerangka berpikir (kotak+panah+box dashed), tabel hasil header berwarna, callout box. Konfirmasi jalur HTML/CSS->PDF = Kiro-grade (selaras 12.22).
+
+#### GAP TEREKSPOS (sinyal tuning, INI yang dikerjain berikut):
+1. GAP-WEB (BESAR): web-grounding Jarvis MATI di run ini. delegate_task subagent TIDAK punya akses web; curl Scholar -> CAPTCHA; Garuda -> tidak responsif. Akibat: aturan Indonesia-first benar secara PERILAKU tapi tidak punya TOOL eksekusi -> selalu jatuh ke placeholder. Ini OPEN-item B (web-grounding skill+tool) yang belum kelar. CATATAN: tes 12.22 LAPOR dapet 5 sumber Indonesia asli, tapi run ini GAGAL -> kapabilitas web Jarvis TIDAK konsisten/andal. Perlu diagnosa di Acer: kenapa subagent gak punya web, apakah ada tool search lain yang gak kepilih, kenapa kadang dapet kadang gagal.
+2. GAP-WRITE (sedang): write-pipeline rapuh. CHUNKED WRITE PROTOCOL (max 350 baris) + heredoc parsing error + file HTML corrupt (konten di luar </body></html>) + nulis ulang berkali-kali. ~10 iterasi / 6+ menit utk 1 HTML. Jalur build HTML berkelahi dgn constraint chunked-write. Reliability signal -> pertimbangkan pola spec->render yg lebih atomik utk HTML, bukan append heredoc bertahap.
+
+#### TEMUAN KUALITAS PPTX (objektif, struktur XML; LibreOffice TIDAK ADA di sandbox Kiro AL2023 jadi gak bisa pixel-render pptx):
+- render_deck (51KB, NEW) vs pptxgenjs (161KB, OLD): shadow 0 vs 19; border/line 30 vs 78; palet navy-monokrom vs multi-warna (biru+teal+hijau); bg putih (preset academic) vs gelap (slate). Arif nilai OLD lebih "wow".
+- AKAR: (a) render_deck.py SENGAJA matiin shadow (sp.shadow.inherit=False di tiap shape); (b) Jarvis pilih preset "academic" (putih polos), padahal render_deck PUNYA preset "dark"/"business" yang lebih nendang tapi gak kepilih.
+- KLASIFIKASI: ini PRIORITAS RENDAH dalam konteks tuning (estetika artefak, bukan blocker kapabilitas). Anti-over-engineering (steering #8): JANGAN buru-buru upgrade engine desain. Yang ngebatesin Jarvis = GAP-WEB, bukan shadow slide. Kalau nanti mau, upgrade bedah render_deck (nyalain shadow + layout flow + default preset wow) = murah, tapi tahan sampai gap fungsional beres.
+
+#### STATUS & NEXT:
+- STATUS: dual-output PROVEN bekerja (routing + tool benar). Web-grounding = gap fungsional utama berikutnya.
+- NEXT (urut): (1) checkpoint ini [DONE]; (2) DIAGNOSA GAP-WEB di Acer (kenapa subagent gak web + apakah ada tool search + kenapa inkonsisten vs 12.22); (3) opsional GAP-WRITE; (4) estetika render_deck = paling akhir / kalau diminta.
+- BELUM TERBUKTI: deploy_dual_output.sh udah dijalanin di Acer atau belum (aksi runtime, gak kelihatan dari repo). Verifikasi: cek direktif "DUAL-OUTPUT DECKS" ada di ~/.hermes/memories/USER.md + html_to_pdf.sh ada di ~/.hermes/scripts/.
+- Lensa proyek: dokumen-dokumen ini = PROBE TES tuning Jarvis, bukan deliverable. Nilai dari "apa yang dibuktikan tentang perilaku Jarvis", bukan kerapian slide.
+
+
+
+### 12.24 KOREKSI: grounding penuh dari transkrip sesi + pembatalan fix salah (2026-06-30)
+> Sesi Kiro baru baca FULL transkrip sesi sebelumnya (1917 baris). Mengoreksi kesimpulan keliru yang sempat di-commit lalu di-revert. Lensa TUNING.
+
+#### KESALAHAN YANG DIKOREKSI (lesson, anti-ulang):
+- Commit 2ec45c8 (deploy_doc_routing_fix.sh + 12.24 versi lama) DI-REVERT (commit revert 4fd3666). Sebabnya: disimpulkan dari output `ls -1 ~/.hermes/skills/` yang cuma 48 folder bahwa academic-document-factory = "skill hantu" -> SALAH. Transkrip penuh + inventory ~200 skill yang di-paste user nunjukin academic-document-factory ADA dan justru skill akademik UTAMA (4-pipa, ID-native, + humanizer-protocol). office-academic-skill yang REDUNDAN (rencana hapus). Script lama nge-rename ke arah kebalik = berbahaya. Untung belum dideploy.
+- LESSON: JANGAN simpulkan "skill tidak ada" dari satu `ls` yang mungkin parsial. Verifikasi via find rekursif + cocokkan dengan inventory penuh. Discrepancy 48 vs ~200 skill antar-output BELUM diselesaikan -> wajib re-grounding sebelum sentuh routing.
+
+#### STATE ASLI (terbukti dari transkrip, semua di PR #2 / branch feat/action-gate-v2-plugin, BELUM merge main):
+- Action-gate v2 shadow live + tuned + compound-aware (12.14-12.16). Event log Acer APPENDED.
+- pipa-routing D-soft terbukti behavioral (12.17-12.18).
+- render_deck v2 design-system (12.19).
+- humanizer-default USER.md L623 (12.21) - kebukti fire (skill_view: humanizer di deck).
+- artifact-routing L624, academic-sourcing L625 (kebukti: 5 sumber Indonesia asli), dual-output L626 + html_to_pdf.sh + render_deck (12.22, commit bffc55b).
+- WIN: auto-select "wow" -> claude-design JALAN otomatis tanpa disuruh.
+
+#### BUG ASLI yang masih kebuka (prioritas tuning sebenarnya):
+1. ROUTING AKADEMIK MELESET: pas auto-select PPT sidang, Jarvis pilih skill `powerpoint` -> pptxgenjs (CRASH sharp "Illegal instruction" di CPU Acer), BUKAN academic-document-factory / render_deck / jalur dual-output. Directive L624 belum cukup kuat utk lane akademik (kalah tarikan "PPT editable -> powerpoint"). INI bug doc-routing yang ASLI.
+2. WEB-GROUNDING INKONSISTEN: delegate_task subagent TIDAK punya akses web; curl Scholar=CAPTCHA, Garuda=mati. Kadang dapet sumber (12.22), kadang gagal+placeholder (dual-output run). = item B belum kelar.
+3. PPTX < HTML (plafon engine): editable pptx (render_deck) selalu di bawah HTML/PDF (claude-design). dual-output = kompromi. User masih rasa pptx "menurun".
+4. office-academic-skill + _src_academic = REDUNDAN, belum dihapus (rencana: rm -rf, pakai academic-document-factory).
+
+#### NEXT (urut):
+1. MERGE PR #2 ke main - terus ketunda sepanjang sesi lama, PALING penting (persist + kebaca sesi depan).
+2. Re-grounding inventory skill Acer (resolve 48 vs ~200) - find rekursif SKILL.md.
+3. Fix routing akademik: pertegas L624 / pipa-routing biar academic -> academic-document-factory atau dual-output, JAUHIN powerpoint/pptxgenjs (crash). Observe dulu.
+4. (opsional) web-grounding (B): kasih jalur fetch+verify yang andal; hapus skill redundan.
+- Humanizer-default sudah aktif (L623) - reinforcement gate di pptx skill BATAL (ikut revert); kalau mau, taruh ulang nanti setelah routing akademik beres.

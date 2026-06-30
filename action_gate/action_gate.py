@@ -63,7 +63,7 @@ def extract_paths(cmd):
 def V(verdict, reason, requires=None):
     return {"verdict": verdict, "reason": reason, "requires": requires or []}
 
-def classify_command(cmd, context="default"):
+def _classify_single(cmd, context="default"):
     c = cmd.strip()
     low = c.lower()
     paths = extract_paths(c)
@@ -119,11 +119,19 @@ def classify_command(cmd, context="default"):
     if re.search(r'(post|publish|tweet|/sendmessage|sendmail|mail -s|smtp)', low) and not re.search(r'(localhost|127\.0\.0\.1)', low):
         return V("NEEDS_APPROVAL", "Aksi publikasi/kirim ke pihak ketiga (irreversible-ish).")
 
-    # 7. read-only / inspect
-    READ = ["ls", "cat", "grep", "find", "stat", "head", "tail", "wc", "sha256sum", "md5sum",
-            "pwd", "whoami", "ps", "ss", "netstat", "df", "du", "date", "uname", "which",
-            "git status", "git log", "git diff", "git show", "git branch", "journalctl"]
-    if any(low.startswith(rc) for rc in READ) or low.startswith("systemctl") and re.search(r'\b(status|is-active|is-enabled|list)\b', low):
+    # 7. read-only / inspect (kecuali ada redirect tulis '>' -> biarin section 8 yg nilai path-nya,
+    #    biar 'cat rahasia > ~/.hermes/config.yaml' gak lolos sebagai "read-only")
+    has_out_redirect = ">" in c
+    READ = ["ls", "cat", "grep", "egrep", "fgrep", "rg", "find", "stat", "head", "tail",
+            "wc", "sha256sum", "md5sum", "pwd", "whoami", "ps", "ss", "netstat", "df", "du",
+            "date", "uname", "which", "echo", "printf", "env", "jq", "cut", "sort", "uniq",
+            "tr", "column", "basename", "dirname", "realpath", "readlink", "file", "diff",
+            "cmp", "type", "id", "groups", "hostname", "uptime", "free", "tree", "less", "more",
+            "git status", "git log", "git diff", "git show", "git branch", "git remote", "journalctl"]
+    if not has_out_redirect and (
+        any(low.startswith(rc) for rc in READ)
+        or (low.startswith("systemctl") and re.search(r'\b(status|is-active|is-enabled|list)\b', low))
+    ):
         return V("AUTO_OK", "Read-only / inspect.")
     if first == "curl":
         if re.search(r'(-x\s*post|--data\b|-d\b)', low) and not re.search(r'(localhost|127\.0\.0\.1)', low):
@@ -142,6 +150,52 @@ def classify_command(cmd, context="default"):
 
     # 9. default konservatif
     return V("NEEDS_APPROVAL", "Aksi tak dikenali -> default konservatif (escalate ke Arif).")
+
+
+# --- Command majemuk: nilai TIAP segmen, ambil verdict PALING KETAT (anti prefix-masking) ---
+_SEVERITY = {"AUTO_OK": 0, "AUTO_OK_W_BACKUP": 1, "NEEDS_APPROVAL": 2, "REFUSE": 3}
+
+def _split_top_level(cmd):
+    """Pecah command pada operator chaining top-level (; && || | newline),
+    HORMATI tanda kutip (jangan pecah di dalam '...' atau \"...\")."""
+    parts, buf, i, q, n = [], [], 0, None, len(cmd)
+    while i < n:
+        ch = cmd[i]
+        if q:
+            buf.append(ch)
+            if ch == q:
+                q = None
+            i += 1
+            continue
+        if ch in ("'", '"'):
+            q = ch; buf.append(ch); i += 1; continue
+        if cmd[i:i+2] in ("&&", "||"):
+            parts.append("".join(buf)); buf = []; i += 2; continue
+        if ch in (";", "|", "\n"):
+            parts.append("".join(buf)); buf = []; i += 1; continue
+        buf.append(ch); i += 1
+    parts.append("".join(buf))
+    return [p.strip() for p in parts if p.strip()]
+
+def classify_command(cmd, context="default"):
+    """Compound-aware wrapper.
+    - Heredoc ('<<') -> JANGAN dipecah (hindari salah-potong body); pakai scan utuh (sudah errs-safe).
+    - Selain itu: pecah top-level, klasifikasi tiap segmen, verdict PALING KETAT yang menang.
+      Nutup prefix-masking spt 'echo x && ./run.sh' (dulu AUTO_OK krn prefix echo) dan
+      'cat f | tee ~/.hermes/config.yaml' (dulu lolos sbg read)."""
+    if cmd and "<<" not in cmd:
+        segs = _split_top_level(cmd)
+        if len(segs) > 1:
+            worst = None
+            for s in segs:
+                r = _classify_single(s, context)
+                if worst is None or _SEVERITY[r["verdict"]] > _SEVERITY[worst["verdict"]]:
+                    worst = r
+            worst = dict(worst)
+            worst["reason"] = "[majemuk] " + worst.get("reason", "")
+            return worst
+    return _classify_single(cmd, context)
+
 
 def assert_allowed(cmd, context="default"):
     r = classify_command(cmd, context)
