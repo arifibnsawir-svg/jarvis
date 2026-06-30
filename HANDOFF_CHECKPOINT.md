@@ -549,3 +549,24 @@ File hasil (Drive "Hasil jarvis"): sidang_gaya_belajar_prestasi.pdf (144KB, 15 h
 3. Fix routing akademik: pertegas L624 / pipa-routing biar academic -> academic-document-factory atau dual-output, JAUHIN powerpoint/pptxgenjs (crash). Observe dulu.
 4. (opsional) web-grounding (B): kasih jalur fetch+verify yang andal; hapus skill redundan.
 - Humanizer-default sudah aktif (L623) - reinforcement gate di pptx skill BATAL (ikut revert); kalau mau, taruh ulang nanti setelah routing akademik beres.
+
+
+
+### 12.29 PIPA4 FINAL GATE: wire PIPA4 ke loop produksi (final akademik) (2026-06-30)
+> Branch: feat/pipa4-final-gate (base a2b7260=main). Nutup gap "PIPA4 di luar loop produksi" yang ketemu di audit PIPA 1-4.
+
+#### AUDIT PIPA 1-4 (terbukti, no dusta):
+- PIPA4 = engine REAL & SEHAT end-to-end. Dry-run PDF sample (Mini_Book_PKn_Nurjali): artifact_type PDF -> [1/2] audit -> [2/2] council (jarvis-reason) SUKSES -> final_status NEEDS_TEXT_CLEANUP, false_READY_count 0, production_ready False. Council LLM HIDUP.
+- "jarvis-reason health=False" tadi = FALSE ALARM. guardian_router COMBO_MODEL_MAP punya jarvis-reason (L86/102/112); guardian health score 96 HEALTHY; live /route test gua salah endpoint (balik HTML) = inkonklusif, bukan rusak. Dry-run PDF = bukti pamungkas council jalan.
+- PIPA1-3 = NOL engine (cuma skill neuro-arc/arsi/pipa-routing, by design). router.py/task_state/capsule = orphan skeleton (gak ke-deploy Acer). PIPA4 = MANUAL only (/pipa4_review_dryrun), gak auto di agent loop. PIPA4 cuma terima PDF/DOCX (markdown -> UNKNOWN -> gagal extract).
+
+#### FIX (commit ini) -- Jalur 2, bounded:
+- scripts/pipa4_gate.sh: wrapper tipis. `bash pipa4_gate.sh <artifact> <constraint.json>` -> jalanin pipa4_review_local.py --mode dry_run -> parse final_status + false_READY_count -> VERDICT PASS (READY_FOR_HUMAN_REVIEW & 0 false-READY -> exit0) / NEEDS_WORK (exit1) / ERROR (exit2). Original NEVER diubah (PIPA4 copy ke run_dir). Parse logic teruji lokal (NEEDS_TEXT_CLEANUP->NEEDS_WORK, READY->PASS).
+- scripts/deploy_pipa4_final_gate.sh: deploy helper + smoke-test di sample PDF + wire direktif "PIPA4 FINAL GATE" ke USER.md (idempotent+backup, no restart).
+- Direktif: deliverable akademik FINAL (PDF/DOCX) WAJIB lewat pipa4_gate sebelum klaim DONE -> kalau NEEDS_WORK, perbaiki flag -> RE-GATE -> ulang (ARSI Iterasi) sampai PASS. SCOPED: cuma final PDF/DOCX akademik (PIPA4 berat ~300s, BUKAN tiap artefak = anti-over-engineering). Pakai final_status sbg sinyal (production_ready selalu hardcoded False).
+
+#### STATUS & NEXT:
+- BELUM TERBUKTI sampai deploy+uji /new di Acer: Jarvis beneran manggil pipa4_gate utk deliverable final akademik + loop iterasi sampai PASS. DEPLOY: cd ~/jarvis && git fetch origin && git checkout feat/pipa4-final-gate && git pull && bash scripts/deploy_pipa4_final_gate.sh ; lalu /new + minta makalah/laporan PDF final -> cek Jarvis jalanin gate + iterasi.
+- ROLLBACK: cp USER.md.bak.<ts> USER.md ; rm -f ~/.hermes/scripts/pipa4_gate.sh.
+- HASIL: loop "produksi -> PIPA4 gate -> iterasi -> deliver" KETUTUP utk final akademik. PIPA1-3 tetap soft (by design). Auto-gate semua artefak SENGAJA TIDAK dibikin (over-engineering, PIPA4 berat).
+- MERGE ORDER saran: #3 -> #4 -> #5 -> #6 -> PR ini. Hindari konflik append checkpoint.
