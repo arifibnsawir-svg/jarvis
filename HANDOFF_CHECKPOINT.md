@@ -519,3 +519,31 @@ File hasil (Drive "Hasil jarvis"): sidang_gaya_belajar_prestasi.pdf (144KB, 15 h
 - NEXT (urut): (1) checkpoint ini [DONE]; (2) DIAGNOSA GAP-WEB di Acer (kenapa subagent gak web + apakah ada tool search + kenapa inkonsisten vs 12.22); (3) opsional GAP-WRITE; (4) estetika render_deck = paling akhir / kalau diminta.
 - BELUM TERBUKTI: deploy_dual_output.sh udah dijalanin di Acer atau belum (aksi runtime, gak kelihatan dari repo). Verifikasi: cek direktif "DUAL-OUTPUT DECKS" ada di ~/.hermes/memories/USER.md + html_to_pdf.sh ada di ~/.hermes/scripts/.
 - Lensa proyek: dokumen-dokumen ini = PROBE TES tuning Jarvis, bukan deliverable. Nilai dari "apa yang dibuktikan tentang perilaku Jarvis", bukan kerapian slide.
+
+
+
+### 12.24 DOC-CREATION GROUNDING + FIX (skill hantu & humanizer ke-skip) (2026-06-30)
+> Lensa TUNING: benerin jalur Jarvis bikin dokumen biar KONSISTEN. Grounding read-only di Acer (via Jarvis/Telegram) ngebongkar 2 bug routing/compliance, bukan masalah engine. Fix di lapis SOFT (USER.md directive + skill), no restart.
+
+#### GROUNDING (output mentah Acer, read-only):
+- Tool LENGKAP: render_deck.py ter-deploy di ~/.hermes/scripts/ (11770B, sha 211729543d9f = SAMA dgn repo). html_to_pdf.sh ADA. chromium + soffice + libreoffice ADA. python-pptx + python-docx importable. DUAL-OUTPUT directive aktif (USER.md L626). Bukti artefak fresh di outbox/presentations (sidang_gaya_belajar*.{html,pdf,pptx,js,spec.json}). File .js = konfirmasi yang 161KB LAMA emang pptxgenjs/Node.
+- render_docx.py & render_pptx.py TIDAK ter-deploy di ~/.hermes/scripts/ -> repo renderer itu DEAD CODE di produksi; DOCX jalan lewat office-academic-skill.
+- ls -1 ~/.hermes/skills/ = 48 folder TOP-LEVEL. CATATAN: ini cuma top-level; checkpoint 12.21 ngeklaim ~200 skill -> kemungkinan banyak NESTED. Maka deteksi "hantu" WAJIB pakai find rekursif, BUKAN ls -1 (anti salah-patch).
+
+#### BUG TEREKSPOS:
+1. SKILL HANTU di routing. USER.md L624 (ARTIFACT ROUTING) nyuruh akademik -> academic-document-factory (+ office-document-ops). Di top-level ls, dua-duanya GAK ADA; yang ADA & ke-adopsi = office-academic-skill (12.20). Directive nunjuk skill yang (kemungkinan) hantu -> routing ambigu -> Jarvis improvisasi. Juga ngebantah asumsi 12.21 yg nganggep academic-document-factory ada.
+2. HUMANIZER KE-SKIP. Jarvis ngaku sendiri: USER.md L623 wajibin humanizer FINAL-pass utk SEMUA artefak, tapi di workflow sidang dia SKIP. Humanizer reliable cuma di sosmed (L5/508/510 trigger eksplisit), gak ke-trigger di dokumen. Directive global kurang kuat.
+3. (info) claude-design (jalur wow-HTML, L626) -> kalau ternyata hantu juga, itu AKAR HTML freehand/corrupt di tes. Perlu cek + keputusan terpisah (JANGAN auto-fix).
+
+#### FIX (commit ini, branch feat/action-gate-v2-plugin):
+- scripts/deploy_doc_routing_fix.sh = SELF-GROUNDING (find inventory dulu) + idempotent + backup, NO restart:
+  - FIX #1: rename di USER.md HANYA conditional -> academic-document-factory->office-academic-skill & office-document-ops->document-preservation-guard, TAPI cuma kalau target terbukti HANTU (find) DAN pengganti terbukti ADA. Kalau ternyata nested/valid -> NO-CHANGE (anti salah-patch). Plus WARN kalau claude-design hantu.
+  - FIX #2: inject "Humanizer Gate (WAJIB V2.1)" ke pptx-slides-creation-guard/SKILL.md (idempotent) + checklist item di Validation Minimum -> humanizer ke-trigger BY SKILL pas tugas PPT, bukan cuma direktif global yg ke-skip. Untuk dual-output: humanize SUMBER (HTML+spec.json) sebelum render.
+- skills/pptx-slides-creation-guard/SKILL.md di repo udah di-mirror (Humanizer Gate + checklist).
+
+#### STATUS & NEXT:
+- BELUM TERBUKTI sampai deploy+uji di Acer: (a) apakah academic-document-factory/office-document-ops beneran hantu atau NESTED (deploy script yg mutusin via find); (b) apakah claude-design hantu; (c) behavioral: abis fix, apakah Jarvis di /new milih office-academic-skill utk Word + selalu jalanin humanizer.
+- DEPLOY: cd ~/jarvis && git fetch origin && git checkout feat/action-gate-v2-plugin && git pull && bash scripts/deploy_doc_routing_fix.sh (balas OUTPUT MENTAH: [A] inventory, RESULT_FIX1, RESULT_FIX2, PROOF).
+- ROLLBACK: cp USER.md.bak.<ts> USER.md ; cp pptx-slides-creation-guard/SKILL.md.bak.<ts> SKILL.md.
+- SISA prioritas rendah (tahan dulu, anti-over-engineering): DOCX path decision (retire repo render_docx atau wire), validate_spec ke render_deck, jalur wow-HTML (butuh skill HTML-design nyata kalau claude-design hantu), estetika deck (shadow/preset).
+- HOUSEKEEPING: merge PR #2 biar semua persist ke main.
