@@ -1,0 +1,5 @@
+name: mistake_logger
+version: 0.1.0
+description: "Mistake-memory deterministik: hook post_tool_call -> auto-log tool-call yang GAGAL/error/blocked ke ~/.hermes/memories/LESSONS.md (reuse action_gate/lessons_logger). Observer-only, fail-open, no LLM. Kill-switch env MISTAKE_LOGGER_OFF=1."
+author: arif
+kind: standalone

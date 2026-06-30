@@ -549,3 +549,126 @@ File hasil (Drive "Hasil jarvis"): sidang_gaya_belajar_prestasi.pdf (144KB, 15 h
 3. Fix routing akademik: pertegas L624 / pipa-routing biar academic -> academic-document-factory atau dual-output, JAUHIN powerpoint/pptxgenjs (crash). Observe dulu.
 4. (opsional) web-grounding (B): kasih jalur fetch+verify yang andal; hapus skill redundan.
 - Humanizer-default sudah aktif (L623) - reinforcement gate di pptx skill BATAL (ikut revert); kalau mau, taruh ulang nanti setelah routing akademik beres.
+
+
+
+### 12.25 FIX ROUTING AKADEMIK: pisah akademik-WORD vs akademik-PPT (2026-06-30)
+> Lanjutan setelah PR #2 MERGED ke main (semua 12.14-12.24 + skrip + skill udah di main, merge commit 5e44756). Branch baru: fix/academic-ppt-routing.
+
+#### GROUNDING (inspect read-only Acer, terbukti):
+- Total skill ASLI = 224 (find rekursif SKILL.md). `ls -1 ~/.hermes/skills/` cuma nampak 48 karena skill NESTED di subfolder kategori (productivity/, creative/, dll). -> discrepancy 48-vs-200 RESOLVED. LESSON: jangan simpulin inventaris dari ls top-level.
+- academic-document-factory ADA di productivity/academic-document-factory, TAPI DOCX-ONLY: description+pipeline+references semua DOCX/PDF (mini book/makalah/laporan, python-docx, modul formatting). grep pptx|slide|presentation|powerpoint|render_deck|deck = ZERO. Skill ini TIDAK punya kapabilitas PPT.
+- powerpoint (productivity/powerpoint) trigger sangat luas ("any .pptx involved") -> gampang menang utk request PPT.
+
+#### AKAR BUG (terbukti):
+- USER.md L624 nge-rute "defense/seminar PPT" -> academic-document-factory (MISMATCH: skill DOCX-only). Konflik dgn L626 (dual-output: akademik deck -> render_deck.py PPTX + claude-design PDF). Akibat: PPT akademik POLOS (yg gak minta dual) bisa nyasar ke powerpoint+pptxgenjs -> CRASH sharp (Illegal instruction CPU Acer). Test 12.22 = bukti (pptxgenjs crash). Test 12.23 dual-output BENAR pakai render_deck (krn L626).
+
+#### FIX (commit ini):
+- scripts/deploy_academic_ppt_routing_fix.sh: append 1 direktif "ACADEMIC ROUTING PRECEDENCE" ke USER.md (idempotent + backup, NO restart). Isi: akademik WORD/makalah/laporan/mini-book -> academic-document-factory; akademik PPT/slides/sidang -> render_deck.py (+ dual-output kalau perlu dua versi); JANGAN PPT akademik ke academic-document-factory (DOCX-only) atau powerpoint+pptxgenjs/sharp (crash); humanizer SELALU pass terakhir.
+- Bukan nulis ulang L624 (rawan) -- direktif presedensi yang menimpa, lebih aman.
+
+#### STATUS & NEXT:
+- BELUM TERBUKTI sampai deploy + uji /new: apakah PPT akademik polos sekarang konsisten ke render_deck (bukan pptxgenjs). DEPLOY: cd ~/jarvis && git fetch origin && git checkout fix/academic-ppt-routing && git pull && bash scripts/deploy_academic_ppt_routing_fix.sh ; lalu /new + "buatkan PPT sidang tentang X, editable" -> cek skill_view (harus render_deck, BUKAN powerpoint/pptxgenjs) + humanizer jalan.
+- ROLLBACK: cp USER.md.bak.<ts> USER.md.
+- SISA (prioritas lebih rendah): humanizer enforcement masih inkonsisten (ke-skip di run dual-output 12.23, nyala di run lain) -> pantau; web-grounding (B) subagent no-web; office-academic-skill + _src_academic redundan (bisa dihapus, academic-document-factory yg dipakai utk Word).
+- Lensa: ini tuning routing (lapis SOFT), bukan bikin dokumen. Dokumen2 = probe tes.
+
+
+
+### 12.26 FIX WEB-GROUNDING: set search_backend=ddgs (akar halu sumber) (2026-06-30)
+> Branch: feat/web-search-ddgs (base a2b7260=main). Independen dari fix/academic-ppt-routing (PR#3). Lensa tuning lapis SOFT (intake/web).
+
+#### AKAR (terbukti via inspect read-only Acer):
+- config.yaml: web.backend=firecrawl (butuh FIRECRAWL_API_KEY), web.search_backend='' KOSONG, web.extract_backend='' KOSONG.
+- SEMUA env key search KOSONG (TAVILY/SERPER/BRAVE/BING/SEARCHAPI/GOOGLE_CSE/SEARXNG).
+- Backend didukung Hermes: brave_free(key,2k/bln), ddgs(DuckDuckGo,NO key), searxng(self-host), firecrawl/tavily/exa/parallel(key). Fallback: search_backend->backend->first available by env. Karena semua kosong -> TIDAK ada search yang jalan.
+- toolset_distributions.py (web:100/55/90/30..) = BUKAN production (utk data-generation runs) -> red herring.
+- arif-realtime-evidence-protocol-v2 = blok prompt/memory, BUKAN skill terinstall (kosong di ~/.hermes/skills).
+- AKIBAT: tiap search -> scraping mentah (curl Scholar=CAPTCHA, Garuda=timeout) atau subagent tanpa web -> HALU sumber. Inkonsisten (12.22/academic test berhasil; 12.23 dual-output gagal).
+
+#### FIX (commit ini):
+- scripts/deploy_web_search_ddgs.sh: set web.search_backend='ddgs' (sed presisi 1 baris, jaga komentar) + pip install ddgs di venv + YAML sanity + verifikasi import & 1 test search. Backup config. Idempotent.
+- Pilih ddgs (no-key) dulu = win cepat & gratis (anti-over-engineering). Upgrade ke Tavily/Brave (ber-key, kualitas lebih tinggi) gampang nanti = ganti 1 baris + key.
+
+#### CATATAN PENTING:
+- Edit config.yaml = CORE protected -> Jarvis WAJIB minta approval (action-gate jalan, itu benar). Arif approve.
+- config cached by mtime -> mungkin kebaca tanpa restart; kalau web_search masih 'no backend' -> restart gateway (BUTUH GO, ~210s).
+- ROLLBACK: cp config.yaml.bak.<ts> config.yaml.
+
+#### STATUS & NEXT:
+- BELUM TERBUKTI sampai deploy+uji: web_search beneran balikin URL kredibel (bukan halu) di /new. Uji: "cari jurnal Indonesia tentang X, sertakan link" -> harus link resolve, bukan ngarang.
+- vercel-labs/agent-browser DITINJAU: itu lapis BROWSE (automation Chrome, Rust CLI), BUKAN SEARCH. Redundan dgn browser bawaan Hermes (camofox/browser-use) + risiko CPU Acer (binary native, kayak sharp). DITUNDA -> kandidat upgrade BROWSE kalau browser bawaan kebukti kurang. Bukan obat halu sumber (gap = SEARCH).
+- 3 lapis web: SEARCH (query->URL, BARU difix=ddgs) | BROWSE (URL->render, udah ada camofox/browser-use) | EXTRACT (firecrawl/web_extract, ada tapi firecrawl butuh key).
+- MERGE ORDER saran: PR#3 (academic-ppt-routing) dulu, baru PR ini (hindari konflik append HANDOFF_CHECKPOINT.md).
+
+
+
+### 12.27 ACADEMIC-SEARCH SKILL: cari + verifikasi sumber ilmiah (fix halu sumber, akar sebenarnya) (2026-06-30)
+> Branch: feat/academic-search (base a2b7260=main). Mengganti pendekatan ddgs-only (PR#4) untuk lane AKADEMIK - jauh lebih kuat. Lensa tuning lapis SOFT (intake/sumber). Lane joki kuliah.
+
+#### AKAR (terbukti, koreksi pemahaman):
+- Web halu sumber BUKAN cuma karena search_backend kosong. Lebih dalam: (a) agent utama gak punya tool web_search (cuma delegate_task), (b) subagent web HALU (link garuda.kemdikbud.go.id MATI - domain pindah ke garuda.kemdiktisaintek.go.id sejak kementerian pecah; ID dokumen dikarang), (c) TIDAK ada step verify-resolve. ddgs (PR#4) perlu utk web umum, tapi utk AKADEMIK kurang.
+- Google Scholar bot-hostile (CAPTCHA) -> jalur scrape Scholar gampang gagal -> halu. Untuk AGENT, jalur andal = API ilmiah (OpenAlex/Crossref/Semantic Scholar/PubMed - no-key, terstruktur, DOI resolve).
+
+#### SOLUSI (terbukti via tes sandbox pakai script repo ASLI):
+- Adopsi SCOPED dari zLanqing/codex-claude-academic-skills (MIT): paper-lookup + literature-review + citation-management -> skills/academic-search/ (vendored ke repo, ~400K, LICENSE.upstream dijaga). SKIP matlab/qutip/pymatgen dll (anti-over-engineering).
+- Model: COVERAGE (banyak DB: Scholar + OpenAlex + Crossref + Semantic Scholar + PubMed/arXiv + Garuda/SINTA) + KREDIBILITAS 100% (verify WAJIB tiap sitasi).
+- BUKTI verify gate (verify_citations.py repo asli): DOI real 10.30998/formatif.v5i2.336 & 10.33373/kop.v2i2.302 -> LOLOS + sitasi APA auto (Cleopatra 2015 Formatif/UNINDRA; Marpaung 2016 KOPASTA Jurnal Bimbingan Konseling - pas lane BK). DOI halu -> DITOLAK. doi_to_bibtex.py -> BibTeX lengkap (ISSN/publisher).
+- Deps: requests + scholarly (no-key; Semantic Scholar key opsional). NO native binary -> aman CPU Acer (beda sharp/agent-browser).
+
+#### FILE (commit ini):
+- skills/academic-search/{SKILL.md, paper-lookup/, literature-review/, citation-management/, LICENSE.upstream}. SKILL.md Hermes-style: workflow search-wide -> dedup/rank -> VERIFY wajib -> cite-only-verified; Indonesia-first; Scholar best-effort + multi-DB; aturan keras anti-halu (jangan sajikan link tanpa verify, jangan Scholar-only).
+- scripts/deploy_academic_search.sh: copy skill + pip requests/scholarly + verifikasi frontmatter + SMOKE-TEST verify_citations + wire direktif "ACADEMIC SOURCE SEARCH" ke USER.md + FIX domain Garuda/SINTA mati (kemdikbud->kemdiktisaintek). Idempotent + backup, no restart.
+
+#### STATUS & NEXT:
+- BELUM TERBUKTI sampai deploy+uji /new di Acer: (a) Jarvis manggil academic-search + verify sebelum kutip; (b) Google Scholar via scholarly jalan dari IP Acer (datacenter sandbox kemungkinan CAPTCHA - makanya diuji di Acer). DEPLOY: cd ~/jarvis && git fetch origin && git checkout feat/academic-search && git pull && bash scripts/deploy_academic_search.sh ; lalu /new + "cari 5 jurnal Indonesia tentang X, verifikasi linknya" -> cek link RESOLVE (bukan halu) + cite-or-abstain.
+- ROLLBACK: cp USER.md.bak.<ts> USER.md ; rm -rf ~/.hermes/skills/academic-search.
+- HUBUNGAN PR: PR#4 (ddgs) = web umum, tetap berguna; academic-search = khusus akademik (lebih kuat). Dua-duanya komplementer. agent-browser (vercel-labs) = lapis BROWSE, ditunda (redundan + risiko CPU).
+- MERGE ORDER saran: PR#3 (academic routing) -> PR#4 (ddgs) -> PR ini (academic-search), hindari konflik append HANDOFF_CHECKPOINT.md.
+- Catatan kredibilitas joki: verify gate = jaminan 100% (fake DOI ditolak otomatis); coverage multi-DB = mempermudah (banyak sumber). Sesuai requirement Arif.
+
+
+
+### 12.28 MISTAKE-LOGGER plugin: mistake-memory DETERMINISTIK (item C) (2026-06-30)
+> Branch: feat/mistake-logger (base a2b7260=main). Item C dari roadmap A/B/C/D. Jawab keluhan awal Arif "Jarvis selalu nyatat kesalahan biar gak ngulang".
+
+#### AKAR / KENAPA:
+- Mistake-memory selama ini ADVISORY (lessons_logger CLI + direktif USER.md) -> Jarvis bisa LUPA manggil -> kesalahan gak kecatat. Item C = bikin DETERMINISTIK.
+- Infra udah ada (terbukti grounding): hook post_tool_call di VALID_HOOKS (plugins.py:130), _emit_post_tool_call_hook fire dgn status/error_type/error_message, lessons_logger.py (action_gate/) nulis LESSONS.md, pola plugin proven (action_gate_v2).
+
+#### SOLUSI (commit ini):
+- plugins/mistake_logger/{__init__.py, plugin.yaml}: hook post_tool_call -> kalau status error/blocked/failed/timeout ATAU ada error_message -> lessons_logger.log_lesson(attempted/went_wrong/root_cause). OBSERVER-ONLY (selalu return None, gak ngeblok), FAIL-OPEN (error plugin ditelan), ANTI-SPAM (dedup in-memory per (tool,error)), KILL-SWITCH (env MISTAKE_LOGGER_OFF=1). Reuse lessons_logger, no LLM, no engine baru.
+- scripts/deploy_mistake_logger.sh: pastikan lessons_logger ada + copy plugin + py_compile + SMOKE-TEST + enable di config.yaml plugins.enabled (idempotent + backup + YAML sanity). RESTART = langkah terpisah (butuh GO, plugin discover saat startup).
+
+#### TES LOKAL (sandbox, HOME palsu) - SEMUA PASS:
+- FAIL -> ke-log (329B) ; OK -> skip (0) ; DUP -> dedup skip (0) ; OFF(kill-switch) -> skip (0). Format LESSONS.md bersih.
+
+#### STATUS & NEXT:
+- BELUM TERBUKTI sampai deploy+RESTART+uji di Acer: plugin ke-load (journalctl 'mistake_logger registered') + LESSONS.md nambah pas tool nyata error. DEPLOY: cd ~/jarvis && git fetch origin && git checkout feat/mistake-logger && git pull && bash scripts/deploy_mistake_logger.sh ; lalu (BUTUH GO) systemctl --user restart hermes-gateway.
+- Promosi lesson jadi ATURAN always-on = TETAP review Arif (anti skill-rot), bukan auto. Plugin cuma L1 auto-log fakta.
+- KILL-SWITCH: MISTAKE_LOGGER_OFF=1. ROLLBACK: rm -rf ~/.hermes/plugins/mistake_logger ; cp config.yaml.bak.<ts> ; restart.
+- MERGE ORDER saran: PR#3 -> #4 -> #5 -> PR ini (#6). Hindari konflik append checkpoint.
+
+#### REKAP ROADMAP A/B/C/D (status sesi ini):
+- D-soft (pipa-routing) DONE; A (render-path/routing akademik PR#3) DONE+proven; B (web-grounding: ddgs PR#4 web umum + academic-search PR#5 akademik) DONE+proven; C (mistake-logging deterministik PR#6 ini) DONE lokal, pending deploy+restart. Governance action-gate v2 = shadow (live nunggu data organik+GO).
+
+
+
+### 12.29 PIPA4 FINAL GATE: wire PIPA4 ke loop produksi (final akademik) (2026-06-30)
+> Branch: feat/pipa4-final-gate (base a2b7260=main). Nutup gap "PIPA4 di luar loop produksi" yang ketemu di audit PIPA 1-4.
+
+#### AUDIT PIPA 1-4 (terbukti, no dusta):
+- PIPA4 = engine REAL & SEHAT end-to-end. Dry-run PDF sample (Mini_Book_PKn_Nurjali): artifact_type PDF -> [1/2] audit -> [2/2] council (jarvis-reason) SUKSES -> final_status NEEDS_TEXT_CLEANUP, false_READY_count 0, production_ready False. Council LLM HIDUP.
+- "jarvis-reason health=False" tadi = FALSE ALARM. guardian_router COMBO_MODEL_MAP punya jarvis-reason (L86/102/112); guardian health score 96 HEALTHY; live /route test gua salah endpoint (balik HTML) = inkonklusif, bukan rusak. Dry-run PDF = bukti pamungkas council jalan.
+- PIPA1-3 = NOL engine (cuma skill neuro-arc/arsi/pipa-routing, by design). router.py/task_state/capsule = orphan skeleton (gak ke-deploy Acer). PIPA4 = MANUAL only (/pipa4_review_dryrun), gak auto di agent loop. PIPA4 cuma terima PDF/DOCX (markdown -> UNKNOWN -> gagal extract).
+
+#### FIX (commit ini) -- Jalur 2, bounded:
+- scripts/pipa4_gate.sh: wrapper tipis. `bash pipa4_gate.sh <artifact> <constraint.json>` -> jalanin pipa4_review_local.py --mode dry_run -> parse final_status + false_READY_count -> VERDICT PASS (READY_FOR_HUMAN_REVIEW & 0 false-READY -> exit0) / NEEDS_WORK (exit1) / ERROR (exit2). Original NEVER diubah (PIPA4 copy ke run_dir). Parse logic teruji lokal (NEEDS_TEXT_CLEANUP->NEEDS_WORK, READY->PASS).
+- scripts/deploy_pipa4_final_gate.sh: deploy helper + smoke-test di sample PDF + wire direktif "PIPA4 FINAL GATE" ke USER.md (idempotent+backup, no restart).
+- Direktif: deliverable akademik FINAL (PDF/DOCX) WAJIB lewat pipa4_gate sebelum klaim DONE -> kalau NEEDS_WORK, perbaiki flag -> RE-GATE -> ulang (ARSI Iterasi) sampai PASS. SCOPED: cuma final PDF/DOCX akademik (PIPA4 berat ~300s, BUKAN tiap artefak = anti-over-engineering). Pakai final_status sbg sinyal (production_ready selalu hardcoded False).
+
+#### STATUS & NEXT:
+- BELUM TERBUKTI sampai deploy+uji /new di Acer: Jarvis beneran manggil pipa4_gate utk deliverable final akademik + loop iterasi sampai PASS. DEPLOY: cd ~/jarvis && git fetch origin && git checkout feat/pipa4-final-gate && git pull && bash scripts/deploy_pipa4_final_gate.sh ; lalu /new + minta makalah/laporan PDF final -> cek Jarvis jalanin gate + iterasi.
+- ROLLBACK: cp USER.md.bak.<ts> USER.md ; rm -f ~/.hermes/scripts/pipa4_gate.sh.
+- HASIL: loop "produksi -> PIPA4 gate -> iterasi -> deliver" KETUTUP utk final akademik. PIPA1-3 tetap soft (by design). Auto-gate semua artefak SENGAJA TIDAK dibikin (over-engineering, PIPA4 berat).
+- MERGE ORDER saran: #3 -> #4 -> #5 -> #6 -> PR ini. Hindari konflik append checkpoint.
