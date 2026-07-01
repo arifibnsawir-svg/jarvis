@@ -54,4 +54,29 @@ Rollback USER.md: `cp USER.md.bak.<ts> USER.md`.
 ## CATATAN
 - validate_spec.py = read-only, cocok dijalankan berkali-kali; tidak merender apa pun. Gate deterministik factory TETAP satu-satunya penentu DONE pada file jadi.
 - pytest TIDAK diinstall ke venv produksi Hermes (sengaja, biar venv bersih). Smoke test dibikin dep-free (unittest) supaya tetap bisa diverifikasi di Acer.
-- Belum diubah (masih terbuka): relevance filter academic-search, action-gate v2 naik LIVE, word-count akurasi, PDF presentasi landscape. Lihat RESUME_HANDOFF.md Bagian 6.
+
+---
+
+## LANJUTAN 2 - 2026-07-01 (OPEN ITEM #1: relevance filter academic-search)
+
+### VERDICT
+- **FAKTA TERBUKTI (di repo + VERIFIED di Acer):** open item #1 (relevance filter) beres.
+  - jarvis @ main: `27047d5` (skills/academic-search/literature-review/scripts/relevance_filter.py + SKILL.md step 2b + scripts/deploy_academic_search.sh smoke-test [4b]) + `d6707db`... (RESUME/checkpoint sebelumnya).
+  - Bukti Acer (run Jarvis 2026-07-01 21:06): deploy exit 0; `relevance_filter.py --selftest` -> `SELFTEST: PASS` exit 0 (keywords ['media','sosial','prestasi','belajar','mahasiswa']); uji dummy 3 hasil -> 2 RELEVAN ("Dampak Media Sosial..." 1.00, "Media sosial dan motivasi belajar..." 0.80) + 1 TANGENSIAL ("Budidaya Padi Sawah Irigasi" 0.00). verify_citations smoke-test 2/3 (fake ditolak). Domain Garuda/SINTA -> kemdiktisaintek. Direktif USER.md aktif.
+- **CATATAN semantik exit code:** `exit_filter=1` pada uji dummy BUKAN error -> artinya jumlah relevan (2) < `--min-relevant` (default 3). Untuk hasil sedikit ini wajar; pada pemakaian nyata (hasil banyak) exit 0. exit 2 = input/JSON/topik bermasalah.
+- **RISIKO:** rendah. Script stdlib murni (no dep, no network), tidak mengubah verify/gate. Cuma menambah tahap saring SEBELUM verify.
+- **NEXT:** open item #1 KELAR. Sisa open items RESUME Bagian 6 = #2 action-gate v2 LIVE, #3 word-count, #4 PDF presentasi landscape (opsional), #5 office-academic redundan (opsional).
+
+### Apa yang ditambah
+- `relevance_filter.py`: skor 0..1 = 0.6*coverage + 0.4*title_coverage (judul dibobot > abstrak); substring match tahan imbuhan ID ('belajar'~'pembelajaran'); tulis `relevance_score` (dipakai `search_databases.py --rank relevance`); pisahkan RELEVAN vs TANGENSIAL; `--topic`/`--keywords`/`--min-score`/`--min-relevant`/`--out`/`--drop`/`--json`/`--selftest`.
+- SKILL.md: alur jadi search -> konsolidasi -> **2b RELEVANCE FILTER** -> verify -> cite; + prinsip "Relevan, bukan cuma ada"; + checklist.
+- deploy_academic_search.sh: direktif USER.md `ACADEMIC SOURCE SEARCH` jadi 5 langkah (sisip saring relevansi sebelum verify) + smoke-test `[4b]` selftest.
+
+### Perintah verify di Acer (arsip; sudah PASS)
+```
+cd ~/jarvis && git checkout main && git pull
+bash scripts/deploy_academic_search.sh 2>&1 | tail -40
+VENV=/home/arif/.hermes/hermes-agent/venv/bin/python
+REL=~/.hermes/skills/academic-search/literature-review/scripts/relevance_filter.py
+$VENV $REL --selftest ; echo "exit_selftest=$?"   # SELFTEST: PASS, exit 0
+```
