@@ -10,7 +10,10 @@ Jarvis = AI assistant di server Acer (Hermes Gateway, Telegram interface, model 
 
 MILESTONE (2026-07-01): skill **jarvis-document-factory** SELESAI, ter-deploy live di Acer, dan TERBUKTI: Jarvis bisa produksi PPTX/DOCX/PDF lewat pipeline deterministik ber-gate (SPEC JSON -> renderer -> gate). Routing fix + citation fix PROVEN. SEMUA PR (Joki-tugas- + jarvis) sudah dirampungin (lihat Bagian 4).
 
-SESI LANJUTAN (2026-07-01 malam): 3 PERBAIKAN PENDING dari checkpoint 12.30 sudah DI-COMMIT, DI-DEPLOY, dan DIVERIFIKASI di Acer (validate_spec.py, direktif anti-fallback, contoh makalah 4 bab). Bukti run Jarvis: C validate exit 0, D gate PASS (PDF+DOCX 8 hal), E unittest 5/5. PLUS OPEN ITEM #1 (relevance filter academic-search) sudah DI-COMMIT + VERIFIED di Acer (selftest PASS; dummy: Padi->tangensial 0.00, 2 sumber medsos->relevan). Status = **VERIFIED / KELAR**. Detail: HANDOFF_CHECKPOINT_2026-07-01_LANJUTAN.md.
+SESI LANJUTAN (2026-07-01 malam): 3 PERBAIKAN PENDING + 2 OPEN ITEMS kelar:
+- 3 perbaikan checkpoint 12.30 (validate_spec, anti-fallback, contoh makalah) DEPLOYED + VERIFIED
+- #1 relevance filter academic-search DEPLOYED + VERIFIED
+- #3 word-count akurasi COMMITTED (Joki-tugas- `a6dff05` + `d366824`), PENDING deploy+verify di Acer
 
 ## 1. CARA KERJA INFRA (penting buat agent mana pun)
 - Server: Acer `arif-aspire-5551` (Tailscale). Agent cloud TIDAK di tailnet -> SEMUA eksekusi di Acer lewat Jarvis (Telegram) atau SSH oleh Arif. Agent nulis kode/skrip ke repo; Arif/Jarvis jalanin di Acer lalu paste output balik.
@@ -26,54 +29,46 @@ VERDICT format (FAKTA TERBUKTI/BELUM TERBUKTI/RISIKO/NEXT) - evidence-first (jan
 ## 3. JARVIS-DOCUMENT-FACTORY (skill utama produksi dokumen)
 - **Lokasi kode**: repo `arifibnsawir-svg/Joki-tugas-`, folder `jarvis_document_factory/` (PR #10 MERGED ke main). BUKAN di repo `jarvis`. Repo `jarvis` cuma reuse `render_deck.py` + nyimpen skrip tuning/checkpoint.
 - **Deploy Acer**: `~/.hermes/skills/productivity/jarvis-document-factory/` (no-restart). Entry point wajib: `run.py`.
-- **Prinsip**: Structure-Before-Render (model keluarkan SPEC JSON, renderer deterministik yang bikin file), gate deterministik = SATU-SATUNYA penentu DONE, reuse `render_deck.py` (PPTX) + skill `humanizer`, anti-halu gambar (path harus ada).
+- **Prinsip**: Structure-Before-Render (model keluarkan SPEC JSON, renderer deterministik yang membuat file), gate deterministik = SATU-SATUNYA penentu DONE, reuse `render_deck.py` (PPTX) + skill `humanizer`, anti-halu gambar (path harus ada).
 - **3 renderer**: PDF (WeasyPrint A4, target-counter TOC, hyphens:none), DOCX (python-docx mirror + scan TOC dari PDF + footer PAGE), PPTX (render_deck 16:9). Gate 7-cek: structure_order, citation_consistency, humanizer_clean, no_blank_page, no_dangling_heading, toc_accurate, images_real.
-- **ROUTING FIX (PROVEN live)**: dua direktif di USER.md (skrip `scripts/deploy_docfactory_routing.sh` di repo jarvis): (1) PRECEDENCE = permintaan bikin dokumen WAJIB lewat skill ini; (2) OPERATIONAL RULES = wajib jalanin `run.py`, DONE cuma kalau gate PASS (exit 0), larang freehand `render_deck`/skip gate. Terbukti: Jarvis auto-pakai run.py, PDF = A4 factory (bukan slide-convert), gate PASS.
-- **FIX citation_consistency PPTX-aware** (commit 8cc12e2 di Joki-tugas-): deck meringkas isi -> cek sitasi terhadap SPEC body, bukan teks deck yang teringkas. Terbukti FAIL(false-positive) -> PASS; referensi beneran tak terpakai tetap FAIL.
-- **PRA-CEK + ANTI-FALLBACK + TEMPLATE (BARU 2026-07-01 sesi lanjutan; VERIFIED live di Acer)**: (a) `validate_spec.py` di skill = validator pra-render (pesan error jelas: field apa yang kurang; exit 0/1/2), reuse parse_spec+validate+citation layer (bukan logika baru). (b) Direktif `## DOCUMENT FACTORY ANTI-FALLBACK` via `scripts/deploy_anti_fallback.sh` (repo jarvis, idempotent+backup, no-restart): kalau run.py gagal DILARANG freehand, wajib validate_spec -> perbaiki SPEC -> re-run (maks 5 iterasi) -> stop & lapor Arif. (c) Template `examples/makalah_4bab_spec.json` (kasus nyata media sosial vs prestasi belajar: is_academic, style {} warisi margin 3/3/4/3, 5 sumber terverifikasi tersitir dua-arah). Mengalamatkan 3 PERBAIKAN PENDING checkpoint 12.30. VERIFIED di Acer: C exit 0, D gate PASS (PDF+DOCX 8 hal), E unittest 5/5. Detail: HANDOFF_CHECKPOINT_2026-07-01_LANJUTAN.md.
-- **ARSI loop**: `run_pipeline` punya loop iterasi TAPI butuh `fix_fn`; `run.py` sengaja 1-pass (gate FAIL -> AWAITING_GATE + failed_checks). Iterasi "perbaiki SPEC" = agent-driven (Jarvis revisi SPEC lalu re-run), dicover direktif OPERATIONAL RULES + ANTI-FALLBACK. Ini BY DESIGN (konsisten anti-False-READY), bukan bug.
-- **Catatan presentasi**: PDF presentasi keluar A4 dokumen (bukan slide landscape) karena PDF renderer factory = A4. Kalau butuh PDF slide landscape, ekspor PPTX via LibreOffice SETELAH gate PASS (belum diwajibkan; A4 handout dianggap cukup).
+- **ROUTING FIX (PROVEN live)**: dua direktif di USER.md: PRECEDENCE + OPERATIONAL RULES. Jarvis auto-pakai run.py, PDF = A4 factory, gate PASS.
+- **FIX citation_consistency PPTX-aware** (commit 8cc12e2 di Joki-tugas-): deck meringkas isi -> cek sitasi terhadap SPEC body, bukan teks deck yang teringkas.
+- **PRA-CEK + ANTI-FALLBACK + TEMPLATE (VERIFIED)**: validate_spec.py, deploy_anti_fallback.sh, makalah_4bab_spec.json.
+- **WORD-COUNT (BARU, COMMITTED, PENDING VERIFY)**: `word_count` dihitung dari file jadi (bukan estimasi SPEC), ada di RenderResult + GateVerdict + JSON report run.py. Jarvis baca dari situ, nggak nebak. Joki-tugas- `a6dff05` + `d366824`.
+- **ARSI loop**: run.py sengaja 1-pass, iterasi agent-driven. BY DESIGN, bukan bug.
+- **Catatan presentasi**: PDF slide landscape = ekspor LibreOffice pasca-gate PPTX (belum diwajibkan).
 
 ## 3b. ACADEMIC-SEARCH (cari + saring + verifikasi sumber ilmiah)
-- **Lokasi kode**: repo `jarvis`, `skills/academic-search/`. Deploy: `scripts/deploy_academic_search.sh` (copy skill + pip requests/scholarly + wire direktif USER.md `ACADEMIC SOURCE SEARCH`, no-restart).
-- **Alur (VERIFIED live)**: SEARCH multi-database (Indonesia-first OpenAlex/Crossref/Garuda/SINTA + Scholar/Semantic/PubMed) -> KONSOLIDASI (`literature-review/scripts/search_databases.py` dedup+rank) -> **RELEVANCE FILTER** (`relevance_filter.py`) -> VERIFY DOI (`verify_citations.py` resolve CrossRef) -> cite-only-verified.
-- **relevance_filter.py (BARU 2026-07-01, VERIFIED)**: stdlib murni no-dep. Skor 0..1 = 0.6*coverage + 0.4*title_coverage (judul dibobot > abstrak), substring match tahan imbuhan ('belajar'~'pembelajaran'). Pisahkan RELEVAN vs TANGENSIAL, isi `relevance_score` (dipakai `search_databases.py --rank relevance`). Exit: 0 = relevan >= --min-relevant (default 3); 1 = kurang dari itu (bukan error - sinyal cari lagi / longgarkan kata kunci; untuk hasil sedikit ini wajar); 2 = input/JSON/topik bermasalah. Ada `--selftest`. Menutup gap RELEVANSI: verify cuma cek DOI *resolve*, filter ini cek nyambung-topik.
+- **Lokasi**: repo `jarvis`, `skills/academic-search/`. Deploy: `scripts/deploy_academic_search.sh` (no-restart).
+- **Alur (VERIFIED)**: SEARCH multi-database -> KONSOLIDASI -> RELEVANCE FILTER (`relevance_filter.py`) -> VERIFY DOI -> cite-only-verified.
+- **relevance_filter.py (VERIFIED)**: stdlib murni. Skor 0..1 coverage+title, substring match tahan imbuhan ID. Pisah RELEVAN vs TANGENSIAL. Menutup gap sumber tangensial yang dulu lolos verify DOI.
 
 ## 4. STATUS PR (semua RAMPUNG per 2026-07-01)
-- **Joki-tugas-**: PR #10 (skill jarvis-document-factory) **MERGED ke main** (squash c544e1c, termasuk fix citation). PR #1-#6 (deliverable buku PKN / modul) **CLOSED sebagai arsip** (branch + commit utuh; itu OUTPUT kerja joki, bukan bagian tuning Jarvis). **0 PR terbuka.** Commit langsung ke main 2026-07-01 lanjutan: `4fbf6c2` (validate_spec + contoh + test + SKILL.md + deploy) + `2324405` (test CLI dep-free).
-- **jarvis**: PR #2 (action-gate v2) merged sebelumnya. PR #3-#7 (academic-ppt-routing, web-search-ddgs, academic-search, mistake-logger, pipa4-final-gate) isinya SUDAH di main via `chore/consolidate-handoff` (diverifikasi: file identik SHA di main) -> PR **CLOSED sebagai superseded**. **0 PR terbuka.** Commit langsung ke main 2026-07-01 lanjutan: deploy_anti_fallback.sh + checkpoint lanjutan + relevance_filter.py + update RESUME.
+- **Joki-tugas-**: PR #10 MERGED. PR #1-#6 CLOSED (arsip). **0 PR terbuka.** Commit langsung: `4fbf6c2`, `2324405`, `a6dff05`, `d366824`.
+- **jarvis**: PR #2 merged. PR #3-#7 CLOSED sebagai superseded. **0 PR terbuka.** Commit langsung: deploy_anti_fallback.sh, relevance_filter, checkpoint, RESUME, dll.
 
 ## 5. STATUS KEMAMPUAN (terbukti)
-- **jarvis-document-factory** PROVEN live: routing (run.py+gate), citation PPTX-aware, PPTX 16:9 + PDF A4 + DOCX, gate deterministik PASS. Lihat Bagian 3.
-- **Pra-cek + anti-fallback + contoh makalah 4 bab** PROVEN live di Acer (2026-07-01): validate_spec.py exit 0, run.py gate PASS (PDF+DOCX 8 hal), test CLI unittest 5/5. Mengalamatkan 3 perbaikan pending checkpoint 12.30 = KELAR.
-- **Relevance filter academic-search** PROVEN live di Acer (2026-07-01): selftest PASS; dummy 3 hasil -> 2 relevan (1.00 & 0.80) / 1 tangensial ("Budidaya Padi" score 0.00). Menutup gap #1 (verify cek DOI-resolve, filter ini cek relevansi topik). Lihat Bagian 3b.
-- **Routing akademik** PROVEN: PPT akademik -> render_deck (bukan pptxgenjs). Bug academic-document-factory DOCX-only dipisah via direktif (12.25).
-- **Web-grounding** PROVEN: academic-search (OpenAlex/Crossref no-key) + verify DOI + relevance_filter (saring topik). Google Scholar best-effort. ddgs = web umum.
-- **mistake-logger** PROVEN LIVE: auto-log error ke LESSONS.md.
-- **PIPA4 gate** engine sehat (audit+council jarvis-reason). Caveat page-count DOCX: render PDF dulu.
-- **humanizer** default semua artefak. Ada 2 humanizer (ambiguous) -> load path eksplisit `~/.hermes/skills/humanizer/SKILL.md`.
+- **jarvis-document-factory** PROVEN: routing, citation PPTX-aware, gate PASS, validate_spec + anti-fallback.
+- **Relevance filter** PROVEN: selftest PASS, dummy 2 relevan/1 tangensial.
+- **Word-count** COMMITTED (PENDING verify): word_count di JSON report run.py, dihitung dari file jadi.
+- **Routing akademik** PROVEN. **Web-grounding** PROVEN. **mistake-logger** PROVEN. **PIPA4 gate** sehat. **humanizer** default.
 
 ## 6. GAP / OPEN ITEMS (prioritas, evidence-based)
-1. ~~RELEVANSI sumber~~ **SELESAI + VERIFIED (2026-07-01)**: `relevance_filter.py` live di academic-search (saring topik sebelum verify). Lihat Bagian 3b/5. (Tuning lanjut opsional: ambang `--min-score`/`--min-relevant`, atau tarik abstrak lebih kaya dari OpenAlex biar skor lebih tajam.)
-2. **action-gate v2 naik LIVE**: masih shadow; nunggu data organik + keputusan interpreter + GO Arif.
-3. **Word-count akurasi**: Jarvis suka misreport panjang -> verify via wc/PDF.
-4. (opsional) **PDF presentasi**: sekarang A4 dokumen; kalau mau slide landscape, tambah ekspor LibreOffice pasca-gate.
-5. (opsional) **office-academic-skill redundan** (pakai academic-document-factory untuk Word).
+1. ~~RELEVANSI sumber~~ SELESAI + VERIFIED. `relevance_filter.py` live.
+2. **action-gate v2 naik LIVE**: masih shadow; nunggu data organik + GO Arif.
+3. ~~WORD-COUNT akurasi~~ SELESAI + COMMITTED (Joki-tugas- `a6dff05` + `d366824`). `word_count` di RenderResult/GateVerdict + `count_words()` di readers.py + tiap renderer + JSON report run.py + SKILL.md "baca dari JSON, jangan nebak". **PENDING deploy+verify di Acer.**
+4. (opsional) PDF presentasi landscape.
+5. (opsional) office-academic redundan.
 
-> CATATAN: rencana lama "distill skill academic-deliverable-method dari deliverable joki" = SUDAH TEREALISASI jadi **jarvis-document-factory** (di repo Joki-tugas-). Jangan bikin skill akademik baru lagi tanpa alasan kuat (anti-over-engineering).
-> CATATAN 2 (2026-07-01 lanjutan): 3 perbaikan pending checkpoint 12.30 (validate_spec.py, direktif anti-fallback, contoh makalah 4 bab) sudah DI-COMMIT (Joki-tugas- `4fbf6c2` + `2324405`, jarvis) DAN VERIFIED live di Acer: C exit 0, D gate PASS, E unittest 5/5. Status = KELAR.
-> CATATAN 3 (2026-07-01 lanjutan): open item #1 (relevance filter) SELESAI + VERIFIED live (jarvis `27047d5`): selftest PASS, dummy 2 relevan/1 tangensial. Sisa open items = #2-#5.
+> CATATAN 2: 3 perbaikan checkpoint 12.30 + #1 relevance filter VERIFIED.
+> CATATAN 3: #3 word-count COMMITTED, PENDING deploy (Joki-tugas- `d366824`). Sisa: #2, #4, #5.
 
 ## 7. DEPLOY & ROLLBACK (tiap fitur, semua idempotent + backup)
-Pola: `cd ~/jarvis && git fetch origin && git checkout <branch> && git pull && bash scripts/<deploy>.sh`. Skrip inti:
-- `deploy_docfactory_routing.sh` (USER.md: 2 direktif routing factory) - BARU 2026-07-01.
-- `deploy_anti_fallback.sh` (USER.md: direktif ANTI-FALLBACK factory) - BARU 2026-07-01 (sesi lanjutan). Idempotent per-marker + auto-backup `USER.md.bak.<ts>`, no-restart. DEPLOYED + VERIFIED di Acer.
-- `deploy_academic_search.sh` (skill academic-search + pip + direktif USER.md; sekarang + `relevance_filter.py` + smoke-test selftest [4b]). DEPLOYED + VERIFIED di Acer 2026-07-01.
-- `deploy_academic_ppt_routing_fix.sh` - `deploy_web_search_ddgs.sh` (config core, approval) - `deploy_mistake_logger.sh` (plugin+config, RESTART) - `deploy_pipa4_final_gate.sh` (helper+USER.md).
-- Skill factory (Joki-tugas-): `cd ~/Joki-tugas- && git checkout main && git pull && bash jarvis_document_factory/deploy_document_factory.sh` (sekarang ikut deploy validate_spec.py + examples/).
-- Rollback tiap skrip cetak path backup (`USER.md.bak.<ts>` / `config.yaml.bak.<ts>`). Kill-switch mistake-logger: `MISTAKE_LOGGER_OFF=1`. Kill-switch action-gate: `ACTION_GATE_MODE=off`.
+Pola: `cd ~/<repo> && git checkout main && git pull && bash scripts/<deploy>.sh`.
+- Skill factory: `cd ~/Joki-tugas- && git checkout main && git pull && bash jarvis_document_factory/deploy_document_factory.sh`
+- Jarvis skrip: `deploy_docfactory_routing.sh`, `deploy_anti_fallback.sh`, `deploy_academic_search.sh`, `deploy_academic_ppt_routing_fix.sh`, `deploy_web_search_ddgs.sh`, `deploy_mistake_logger.sh`, `deploy_pipa4_final_gate.sh`.
+- Rollback: backup file USER.md/conifg.yaml. Kill-switch: MISTAKE_LOGGER_OFF, ACTION_GATE_MODE=off.
 
 ## 8. KALAU PAKAI AGENT SELAIN KIRO
-- **Skill produksi dokumen** = repo `Joki-tugas-` (`jarvis_document_factory/`). **Tuning/infra/checkpoint + academic-search** = repo `jarvis`. Baca file ini + HANDOFF_CHECKPOINT.md (12.x) + HANDOFF_CHECKPOINT_2026-07-01_LANJUTAN.md + jarvis-conventions.md.
-- Eksekusi tetap lewat Jarvis(Telegram)/SSH Arif (agent cloud gak di tailnet Acer).
-- Patuhi konvensi (Bagian 2). Observe-before-patch: SELALU baca state Acer sebelum patch. Jangan percaya checkpoint lama buat status infra -> verify ulang dengan command.
+- Skill produksi = repo Joki-tugas-. Tuning/infra/checkpoint = repo jarvis. Baca RESUME + CHECKPOINT + LANJUTAN + jarvis-conventions.
+- Eksekusi tetap lewat Jarvis(Telegram)/SSH Arif. Observe-before-patch, patuhi konvensi.

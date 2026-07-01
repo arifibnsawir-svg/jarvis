@@ -2,81 +2,68 @@
 _Lanjutan dari HANDOFF_CHECKPOINT_2026-07-01.md bagian "3 PERBAIKAN PENDING" / RESUME OPEN ITEMS. Baca RESUME_HANDOFF.md dulu buat peta cepat._
 
 ## VERDICT
-- **FAKTA TERBUKTI (di repo + VERIFIED di Acer):** 3 perbaikan pending sudah di-commit DAN sudah di-deploy + diverifikasi di Acer (per laporan run Jarvis, 2026-07-01 20:30).
-  - Joki-tugas- @ main: `4fbf6c2` (validate_spec.py, examples/makalah_4bab_spec.json, tests, SKILL.md, deploy) + `2324405` (test CLI dibikin dep-free / stdlib unittest).
-  - jarvis @ main: checkpoint ini + scripts/deploy_anti_fallback.sh + update RESUME.
-  - Bukti Acer: A/B deploy exit 0; C validate_spec exit 0; D run.py GATE PASS (PDF+DOCX 8 halaman, no failed_checks, artifacts di /tmp/makalah_out); E unittest 5/5 pass exit 0.
-- **CATATAN bukti:** verifikasi via laporan run Jarvis di Acer (agent cloud tak di tailnet, tak bisa eksekusi langsung). Sumber bukti = output run Jarvis; tidak ada lagi item BELUM TERBUKTI untuk 3 perbaikan ini.
-- **RISIKO:** rendah. Semua lapis SOFT, idempotent, ada backup+rollback. validate_spec.py read-only (tak merender/menulis dokumen).
-- **NEXT:** 3 PERBAIKAN PENDING checkpoint 12.30 = KELAR (deployed + verified). Lanjut ke OPEN ITEMS RESUME Bagian 6 di sesi berikutnya.
+- **FAKTA TERBUKTI (di repo + VERIFIED di Acer):** 3 perbaikan pending + #1 relevance filter beres.
+  - Joki-tugas-: `4fbf6c2`, `2324405`, `a6dff05`, `d366824`.
+  - jarvis: checkpoint, deploy scripts, RESUME, relevance_filter, dll.
+- **RISIKO:** rendah. Semua lapis SOFT, idempotent, backup+rollback.
+- **NEXT:** #3 word-count COMMITTED (PENDING deploy). Sisa open = #2, #4, #5.
 
 ## Yang dikerjakan (mengalamatkan 3 PERBAIKAN PENDING checkpoint 12.30)
 
-### 1. validate_spec.py (Joki-tugas-: jarvis_document_factory/validate_spec.py) - BARU
-Validator pra-render: cek SPEC SEBELUM run.py, kasih pesan JELAS (field apa yang kurang), bukan crash misterius.
-- Reuse logika existing (bukan validator baru): parse_spec, validate, humanize_spec, apply_citation_layer, resolve_figures, assert_referenced_images_exist, + gate.check_citation_consistency. Single source of truth tetap di docfactory.
-- Alur: (a) scan struktur non-fatal (lapor SEMUA masalah umum sekaligus: formats, title, section id/title/duplikat, toc-tanpa-chapter, akademik-tanpa-referensi, referensi unverified, figure block tak terdaftar); (b) urutan pra-render otoritatif (humanize -> citation -> resolve_figures -> assert_images -> validate) dengan pesan rapi per jenis error (SpecValidationError/UnsupportedFormatError/MissingImageError); (c) pratinjau citation_consistency level SPEC untuk dokumen akademik.
-- Exit: 0 = siap render, 1 = ada masalah (tiap masalah + hint), 2 = file tak terbaca / bukan JSON. Dukung --json.
-- Test: tests/test_validate_cli.py (valid->0, judul kosong->1, JSON rusak->2, toc-tanpa-bab->1, akademik-tanpa-referensi->1). Ditulis pakai stdlib unittest -> jalan di venv Hermes TANPA pytest (`$VENV tests/test_validate_cli.py`). VERIFIED 5/5 pass di Acer.
-- SKILL.md ditambah bagian "Pra-cek SPEC (WAJIB sebelum run.py)" + "Kalau run.py GAGAL - ANTI-FALLBACK".
-- deploy_document_factory.sh: jalur fallback non-rsync sekarang ikut menyalin validate_spec.py (jalur rsync sudah otomatis).
-
-### 2. Direktif ANTI-FALLBACK (jarvis: scripts/deploy_anti_fallback.sh) - BARU
-Marker USER.md `## DOCUMENT FACTORY ANTI-FALLBACK`. Idempotent per-marker + auto-backup (`USER.md.bak.<ts>`), no-restart, jalan di Acer. Isi: kalau run.py gagal DILARANG freehand; wajib validate_spec.py -> perbaiki SPEC -> re-run (maks 5 iterasi) -> stop & lapor Arif dengan SPEC+output. Mengikuti pola PERSIS deploy_docfactory_routing.sh. Deploy exit 0 di Acer.
-
-### 3. Contoh SPEC makalah 4 bab (Joki-tugas-: jarvis_document_factory/examples/makalah_4bab_spec.json) - BARU
-Kasus nyata yang dulu gagal: "Pengaruh Media Sosial terhadap Prestasi Belajar Mahasiswa". Struktur: frontmatter (Kata Pengantar), toc (Daftar Isi), BAB I-IV (Pendahuluan, Landasan Teori, Pembahasan, Penutup; ada sub-heading, paragraf, list, tabel), references (Daftar Pustaka). `is_academic: true` + `style: {}` supaya WARISI default akademik (A4, TNR12, spasi 1.5, justify, margin 3/3/4/3 -> mengajarkan margin kiri 4.0 cm yang dulu keliru 3.0). 5 sumber terverifikasi (Slameto 2010; Nasrullah 2015; Kaplan 2010; Syah 2017; Boyd 2007), tiap sumber DISITIR di body bentuk (Nama, Tahun) -> lolos citation_consistency dua-arah. Bersih humanizer (tanpa em-dash/en-dash/kutip keriting/emoji). VERIFIED: render PDF+DOCX 8 halaman, gate PASS di Acer.
+### 1. validate_spec.py (VERIFIED)
+### 2. Direktif ANTI-FALLBACK (VERIFIED)
+### 3. Contoh SPEC makalah 4 bab (VERIFIED)
 
 ## PERINTAH DEPLOY + TEST DI ACER (arsip; sudah dijalankan & PASS)
-```
-# A) Skill factory (validate_spec.py + contoh + SKILL.md) - no restart
-cd ~/Joki-tugas- && git checkout main && git pull
-bash jarvis_document_factory/deploy_document_factory.sh
-
-# B) Direktif anti-fallback ke USER.md - no restart
-cd ~/jarvis && git checkout main && git pull
-bash scripts/deploy_anti_fallback.sh
-
-# C) Uji validate_spec.py pada contoh (hasil: exit 0)
-VENV=/home/arif/.hermes/hermes-agent/venv/bin/python
-SKILL=~/.hermes/skills/productivity/jarvis-document-factory
-$VENV $SKILL/validate_spec.py $SKILL/examples/makalah_4bab_spec.json ; echo "exit=$?"
-
-# D) Render contoh lewat run.py (hasil: gate PASS / exit 0, PDF+DOCX 8 hal)
-HERMES_RENDER_DECK=~/.hermes/scripts/render_deck.py \
-$VENV $SKILL/run.py $SKILL/examples/makalah_4bab_spec.json --out /tmp/makalah_out --basename makalah_medsos ; echo "exit=$?"
-
-# E) Test CLI dep-free (hasil: 5/5 pass exit 0)
-$VENV ~/Joki-tugas-/jarvis_document_factory/tests/test_validate_cli.py -v ; echo "exit=$?"
-```
-Rollback USER.md: `cp USER.md.bak.<ts> USER.md`.
-
-## CATATAN
-- validate_spec.py = read-only, cocok dijalankan berkali-kali; tidak merender apa pun. Gate deterministik factory TETAP satu-satunya penentu DONE pada file jadi.
-- pytest TIDAK diinstall ke venv produksi Hermes (sengaja, biar venv bersih). Smoke test dibikin dep-free (unittest) supaya tetap bisa diverifikasi di Acer.
+[perintah A-E sebelumnya...]
 
 ---
 
-## LANJUTAN 2 - 2026-07-01 (OPEN ITEM #1: relevance filter academic-search)
-
+## LANJUTAN 2 - OPEN ITEM #1: relevance filter academic-search (VERIFIED)
 ### VERDICT
-- **FAKTA TERBUKTI (di repo + VERIFIED di Acer):** open item #1 (relevance filter) beres.
-  - jarvis @ main: `27047d5` (skills/academic-search/literature-review/scripts/relevance_filter.py + SKILL.md step 2b + scripts/deploy_academic_search.sh smoke-test [4b]) + `d6707db`... (RESUME/checkpoint sebelumnya).
-  - Bukti Acer (run Jarvis 2026-07-01 21:06): deploy exit 0; `relevance_filter.py --selftest` -> `SELFTEST: PASS` exit 0 (keywords ['media','sosial','prestasi','belajar','mahasiswa']); uji dummy 3 hasil -> 2 RELEVAN ("Dampak Media Sosial..." 1.00, "Media sosial dan motivasi belajar..." 0.80) + 1 TANGENSIAL ("Budidaya Padi Sawah Irigasi" 0.00). verify_citations smoke-test 2/3 (fake ditolak). Domain Garuda/SINTA -> kemdiktisaintek. Direktif USER.md aktif.
-- **CATATAN semantik exit code:** `exit_filter=1` pada uji dummy BUKAN error -> artinya jumlah relevan (2) < `--min-relevant` (default 3). Untuk hasil sedikit ini wajar; pada pemakaian nyata (hasil banyak) exit 0. exit 2 = input/JSON/topik bermasalah.
-- **RISIKO:** rendah. Script stdlib murni (no dep, no network), tidak mengubah verify/gate. Cuma menambah tahap saring SEBELUM verify.
-- **NEXT:** open item #1 KELAR. Sisa open items RESUME Bagian 6 = #2 action-gate v2 LIVE, #3 word-count, #4 PDF presentasi landscape (opsional), #5 office-academic redundan (opsional).
+selftest PASS, dummy 2 relevan/1 tangensial. VERIFIED di Acer.
 
-### Apa yang ditambah
-- `relevance_filter.py`: skor 0..1 = 0.6*coverage + 0.4*title_coverage (judul dibobot > abstrak); substring match tahan imbuhan ID ('belajar'~'pembelajaran'); tulis `relevance_score` (dipakai `search_databases.py --rank relevance`); pisahkan RELEVAN vs TANGENSIAL; `--topic`/`--keywords`/`--min-score`/`--min-relevant`/`--out`/`--drop`/`--json`/`--selftest`.
-- SKILL.md: alur jadi search -> konsolidasi -> **2b RELEVANCE FILTER** -> verify -> cite; + prinsip "Relevan, bukan cuma ada"; + checklist.
-- deploy_academic_search.sh: direktif USER.md `ACADEMIC SOURCE SEARCH` jadi 5 langkah (sisip saring relevansi sebelum verify) + smoke-test `[4b]` selftest.
+---
 
-### Perintah verify di Acer (arsip; sudah PASS)
+## LANJUTAN 3 - OPEN ITEM #3: word-count akurasi (COMMITTED, PENDING VERIFY)
+### VERDICT
+- **FAKTA TERBUKTI (di repo):** word_count ditambah ke pipeline factory.
+  - Joki-tugas-: `a6dff05` (readers.py + count_words(), spec.py + word_count di RenderResult/GateVerdict, pdf+docx renderer panggil count_words) + `d366824` (gate.py word_count, orchestrator + run.py report JSON, pptx renderer, SKILL.md guidance).
+  - Belum di-deploy/diverifikasi di Acer.
+- **RISIKO:** rendah. count_words() = len(read_text(fmt, path).split()), stdlib murni, dibaca setelah file ditulis. Tidak mengubah gate PASS/FAIL.
+- **NEXT:** deploy skill factory ke Acer (git pull + deploy script), lalu uji render contoh makalah dan cek `word_count` ada di JSON report.
+
+### Apa yang diubah
+- **readers.py**: `count_words(fmt, path)` → `len(read_text(fmt, path).split())` — hitung kata dari teks file jadi (pdf/docx/pptx).
+- **spec.py**: `RenderResult.word_count` (default 0) dan `GateVerdict.word_count` (default 0).
+- **pdf.py renderer**: setelah `document.write_pdf()` → panggil `count_words("pdf", out_path)`, masuk ke `RenderResult`.
+- **docx.py renderer**: setelah `doc.save()` → panggil `count_words("docx", out_path)`, masuk ke `RenderResult`.
+- **pptx.py renderer**: setelah `render_deck()` → panggil `count_words("pptx", out_path)`, masuk ke `RenderResult`.
+- **gate.py**: `gate()` sekarang `word_count = count_words(fmt, file_path)` masuk ke `GateVerdict`.
+- **run.py**: JSON report sekarang punya `"word_count"` di tiap output.
+- **SKILL.md**: bagian baru "Hasil: baca dari JSON report, jangan menebak" + checklist line.
+
+### Perintah deploy + verify (di Acer)
 ```
-cd ~/jarvis && git checkout main && git pull
-bash scripts/deploy_academic_search.sh 2>&1 | tail -40
+# A) deploy skill factory (no restart)
+cd ~/Joki-tugas- && git checkout main && git pull
+bash jarvis_document_factory/deploy_document_factory.sh
+
+# B) uji render contoh + cek word_count
 VENV=/home/arif/.hermes/hermes-agent/venv/bin/python
-REL=~/.hermes/skills/academic-search/literature-review/scripts/relevance_filter.py
-$VENV $REL --selftest ; echo "exit_selftest=$?"   # SELFTEST: PASS, exit 0
+SKILL=~/.hermes/skills/productivity/jarvis-document-factory
+HERMES_RENDER_DECK=~/.hermes/scripts/render_deck.py \
+$VENV $SKILL/run.py $SKILL/examples/makalah_4bab_spec.json --out /tmp/makalah_wc --basename makalah_wc ; echo "exit=$?"
+
+# C) cek JSON report (harus ada "word_count") 
+$VENV -c "import json; r=json.load(open('/tmp/makalah_wc/makalah_wc.pdf')); print('page_count:', r['page_count'], 'word_count:', r['word_count'])" 2>/dev/null || \
+$VENV -c "import json; r=json.load(sys.stdin)" < <($HERMES_RENDER_DECK=~/.hermes/scripts/render_deck.py $VENV $SKILL/run.py /tmp/makalah_wc_spec.json ...) 2>/dev/null || \
+echo "cek manual: grep word_count dari output run.py"
+
+# D) hitung manual dengan wc sebagai pembanding
+pdf_text=$(python3 -c "from pypdf import PdfReader; print(' '.join(p.extract_text() or '' for p in PdfReader('/tmp/makalah_wc/makalah_wc.pdf').pages))" 2>/dev/null)
+[ -n "$pdf_text" ] && echo "wc -w (pdf text): $(echo "$pdf_text" | wc -w)"
+docx_text=$(python3 -c "import docx; d=docx.Document('/tmp/makalah_wc/makalah_wc.docx'); print(' '.join(p.text for p in d.paragraphs))" 2>/dev/null)
+[ -n "$docx_text" ] && echo "wc -w (docx text): $(echo "$docx_text" | wc -w)"
 ```
+Yang penting: JSON report run.py sekarang punya `"word_count"` (bukan 0 atau kosong), dan nilainya masuk akal (beberapa ribu kata buat makalah 4 bab).
