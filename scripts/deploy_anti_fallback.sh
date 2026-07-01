@@ -2,19 +2,20 @@
 # =============================================================================
 # deploy_anti_fallback.sh
 # -----------------------------------------------------------------------------
-# Direktif ANTI-FALLBACK untuk skill jarvis-document-factory. Menegakkan 1
-# direktif di ~/.hermes/memories/USER.md supaya, saat run.py GAGAL
-# (AWAITING_GATE / error / crash), Jarvis TIDAK kabur ke freehand (python-docx /
-# render_deck.py langsung / tulis file biner manual) melainkan memperbaiki SPEC
-# dan mengulang lewat pipeline factory yang ber-gate.
+# Direktif ANTI-FALLBACK + ARSI ITERASI untuk skill jarvis-document-factory.
+# Menegakkan 2 direktif di ~/.hermes/memories/USER.md:
 #
-# Kenapa perlu: pola gagal berulang (checkpoint 12.21/12.24/12.30) = LLM
-# meninggalkan pipeline ber-gate begitu run.py error, lalu menghasilkan file
-# manual tanpa gate -> False-READY. Direktif ini menutup celah itu dan
-# mengarahkan ke validate_spec.py + iterasi SPEC.
+#   1) ANTI-FALLBACK: saat run.py GAGAL, JANGAN kabur ke freehand.
+#      Wajib validate_spec -> perbaiki SPEC -> re-run (max 5 iterasi).
 #
-# Lapis SOFT: append ke USER.md. Idempotent per-marker + auto-backup. TANPA
-# restart (aktif di sesi baru /new). Jalankan ON THE ACER SERVER (host Jarvis).
+#   2) ARSI ITERASI: gate = SATU-SATUNYA penentu DONE.
+#      JANGAN klaim "SIAP PAKAI"/"DONE"/"DELIVERED"/"PRODUCTION-READY"
+#      selama gate masih FAIL / status AWAITING_GATE. Ini mengatasi pola
+#      False-READY di mana Jarvis skip iterasi dan klaim selesai padahal
+#      gate belum PASS (terbukti di business report 2026-07-01).
+#
+# Lapis SOFT: append ke USER.md. Idempotent per-marker + auto-backup.
+# TANPA restart (aktif di sesi baru /new).
 # =============================================================================
 set -euo pipefail
 
@@ -57,6 +58,42 @@ DIRECTIVE
   echo "OK: ANTI-FALLBACK ditambahkan."
 fi
 
+M2="## ARSI ITERASI — JANGAN KLAIM DONE TANPA GATE PASS"
+if grep -qF "$M2" "$USER_MD"; then
+  echo "SKIP: '$M2' sudah ada."
+else
+  cat >> "$USER_MD" <<'DIRECTIVE'
+
+## ARSI ITERASI — JANGAN KLAIM DONE TANPA GATE PASS
+Ini menegaskan doktrin A.R.S.I (Iterasi = loop self-healing). Gate
+deterministik (7 cek + no_truncated_text) adalah SATU-SATUNYA otoritas yang
+menyatakan output DONE. LLM/Jarvis TIDAK PERNAH boleh mendeklarasikan:
+  - "SIAP PAKAI"
+  - "DONE"
+  - "DELIVERED"
+  - "PRODUCTION-READY"
+  - "sudah jadi"
+  - "bisa dipakai"
+  - "CLEARED FOR PRODUCTION"
+selama status run.py masih AWAITING_GATE / exit non-zero / gate FAIL.
+
+Kalau gate FAIL:
+1. Baca failed_checks — itu daftar masalah NYATA (bukan opini).
+2. Perbaiki SPEC sesuai failed_checks.
+3. Re-run. Ulangi sampai gate PASS (EXIT=0).
+4. HANYA setelah gate PASS, boleh sebut "DONE" dan kirim file ke user.
+
+Kalau ada failed_checks yang tidak dipahami: JANGAN berasumsi. Minta bantuan
+Arif dengan melampirkan SPEC + output run.py.
+
+Aturan ini berlaku untuk SEMUA jenis dokumen (akademik, bisnis, proposal, dll).
+Tidak ada pengecualian "cukup untuk bisnis" atau "cukup untuk draft". Gate =
+deterministik, bukan bisa ditawar.
+DIRECTIVE
+  echo "OK: ARSI ITERASI ditambahkan."
+fi
+
 echo "--- verifikasi marker ---"
 grep -nF "$M1" "$USER_MD"
+grep -nF "$M2" "$USER_MD"
 echo "== DONE. Aktif di sesi BARU (/new), tanpa restart. ROLLBACK: cp ${USER_MD}.bak.${TS} $USER_MD =="
