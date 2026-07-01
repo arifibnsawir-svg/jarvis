@@ -1,64 +1,45 @@
 # RESUME / HANDOFF - Jarvis Tuning (sumber kebenaran tunggal)
-_Update: 2026-07-01 (sesi lanjutan malam). Sesi baru (agent mana pun) tinggal baca file INI + HANDOFF_CHECKPOINT.md + HANDOFF_CHECKPOINT_2026-07-01_LANJUTAN.md + .kiro/steering/jarvis-conventions.md, langsung lanjut._
+_Update: 2026-07-01 22:15 (sesi lanjutan malam)._
 
-> Baca urutan: (1) file ini buat peta cepat, (2) HANDOFF_CHECKPOINT.md bagian 12.x + HANDOFF_CHECKPOINT_2026-07-01_LANJUTAN.md buat detail teknis, (3) .kiro/steering/jarvis-conventions.md buat aturan kerja.
+## 0. TL;DR
+4 PIPA TERSAMBUNG & TERVERIFIKASI (2026-07-01 22:15):
+- PIPA1-3: skills advisory (pipa-routing, neuro-arc, arsi-doctrine)
+- PIPA4 gate factory: 7 cek deterministik (auto di run.py)
+- PIPA4 council: LLM audit auto-fire via hook (VERIFIED: triggered=true, NEEDS_PAGE_TOPUP, false_ready=0)
 
----
+SESI INI: 7 ITEM VERIFIED.
 
-## 0. TL;DR - di mana kita sekarang
-Jarvis = AI assistant di server Acer (Hermes Gateway, Telegram interface, model via 9router). Fokus sesi-sesi terakhir = TUNING biar Jarvis jadi agent joki-kuliah/akademik yang andal. Semua perubahan = lapis SOFT (skill/plugin/direktif USER.md), idempotent, ada rollback.
+## 1. INFRA
+Server: Acer (Tailscale). Kode: Joki-tugas- = factory. jarvis = infra/scripts/deploy.
 
-MILESTONE (2026-07-01): skill **jarvis-document-factory** SELESAI + 4 PIPA TERSAMBUNG (PIPA1-3 skills + PIPA4 auto-wiring). Semua PR merged. 6 item VERIFIED live di Acer.
+## 2. ATURAN KERJA
+VERDICT, evidence-first, anti-False-READY, SOFT vs HARD.
 
-SESI LANJUTAN (2026-07-01 malam): **6 ITEM VERIFIED:**
-1. ✅ validate_spec.py — validator pra-render (EXIT=0)
-2. ✅ ANTI-FALLBACK — larangan freehand (deploy exit 0)
-3. ✅ Contoh makalah 4 bab — template SPEC (gate PASS PDF+DOCX 8 hal)
-4. ✅ Relevance filter — saring sumber tangensial (selftest PASS)
-5. ✅ Word-count — dihitung dari file jadi (PDF 793 exact match)
-6. ✅ PIPA4 auto-wiring — council auto-picu setelah factory gate PASS (hook loaded True, fail-open OK, kill-switch work)
+## 3. JARVIS-DOCUMENT-FACTORY
+- Kode: Joki-tugas-, jarvis_document_factory/. Deploy: bash deploy_document_factory.sh
+- Pipeline: SPEC → humanizer+citation+images → validate → render → gate 7-cek → PIPA4 council (academic)
+- PIPA4 AUTO-WIRING (VERIFIED 22:10): Council auto-fire via ~/.hermes/scripts/pipa4_hook.py. Factory import _load_pipa4_hook() fail-open. Council detected NEEDS_PAGE_TOPUP (real issue, false_ready=0), factory tetap exit 0.
 
-SEMUA 4 PIPA TERSAMBUNG: PIPA1-3 (skills advisory) + PIPA4 (gate factory + council auto-hook).
+## 3b. ACADEMIC-SEARCH (VERIFIED)
 
-## 1. CARA KERJA INFRA
-- Server: Acer `arif-aspire-5551` (Tailscale). Agent cloud TIDAK di tailnet -> eksekusi di Acer via Jarvis/SSH Arif.
-- Live: `~/.hermes/`. Repo `jarvis` = source skrip + handoff + infra (pipa4_hook.py, deploy scripts). Repo `Joki-tugas-` = factory skill.
-- Gateway: proses `hermes_cli.main gateway run`. Restart ~210s. Skill/direktif = /new, no restart. Plugin BARU = restart.
+## 4. 4 PIPA STATUS
+PIPA1-3 (skills advisory) + PIPA4 gate (7 cek) + PIPA4 council (LLM auto-fire) = ALL CONNECTED.
 
-## 2. ATURAN KERJA (jarvis-conventions.md)
-VERDICT format, evidence-first, observe-before-patch, anti-False-READY, anti-over-engineering, SOFT vs HARD, humanizer default.
+## 5. STATUS KEMAMPUAN
+Semua PROVEN: factory, academic-search, routing, web, mistake-logger, council swap, humanizer, word-count, relevance, PIPA4 wiring.
 
-## 3. JARVIS-DOCUMENT-FACTORY (skill produksi utama)
-- **Kode**: repo `Joki-tugas-`, `jarvis_document_factory/`. Deploy: `bash jarvis_document_factory/deploy_document_factory.sh`
-- **Prinsip**: Structure-Before-Render, gate 7-cek deterministik = DONE, reuse render_deck+humanizer.
-- **Render**: PDF (WeasyPrint A4) + DOCX (python-docx) + PPTX (render_deck 16:9).
-- **PIPA4 AUTO-WIRING (VERIFIED 2026-07-01 22:03)**: Setelah factory gate PASS + `is_academic=true` → auto-picu PIPA4 council (`pipa4_gate.sh`, LLM audit jarvis-reason). Hook di `~/.hermes/scripts/pipa4_hook.py` (repo jarvis/scripts/). Factory import via dynamic `_load_pipa4_hook()` — fail-open (PIPA4 gak ada → skip). Kill-switch: `PIPA4_AUTO=off` (default).
+## 6. OPEN ITEMS
+1-6. KELAR (validate, anti-fallback, template, relevance, word-count, PIPA4 wiring)
+7. action-gate v2 LIVE (shadow, nunggu GO Arif)
+8. sub-agent architecture
+9. Opsional + checkpoint items
 
-## 3b. ACADEMIC-SEARCH (cari + saring + verifikasi, VERIFIED)
+## 7. DEPLOY
+- Factory: cd ~/Joki-tugas- && bash jarvis_document_factory/deploy_document_factory.sh
+- PIPA4 hook: cp ~/jarvis/scripts/pipa4_hook.py ~/.hermes/scripts/
+- Kill-switch: PIPA4_AUTO=off
 
-## 4. 4 PIPA — STATUS KONEKSI (VERIFIED)
-- **PIPA1-3**: skills advisory (pipa-routing, neuro-arc, arsi-doctrine) — VERIFIED behavioral
-- **PIPA4 gate factory**: 7 cek deterministik (structure, citation, humanizer, blank, dangling, toc, images) — VERIFIED PASS
-- **PIPA4 council**: LLM audit via jarvis-reason (phase6a+6c+6d) — VERIFIED manual, now AUTO-WIRED via hook
-
-## 5. STATUS KEMAMPUAN (semua PROVEN/VERIFIED)
-- Document factory: validate + anti-fallback + template + word-count (793 exact) + PIPA4 hook (fail-open)
-- Academic-search: relevance filter + verify DOI
-- Routing akademik, web-grounding, mistake-logger, PIPA4 council swap, humanizer, dual-output
-
-## 6. GAP / OPEN ITEMS
-1. ~~RELEVANSI sumber~~ VERIFIED
-2. ~~WORD-COUNT~~ VERIFIED
-3. ~~PIPA4 auto-wiring~~ VERIFIED (hook loaded True, fail-open, kill-switch work)
-4. **action-gate v2 naik LIVE** — shadow, nunggu data + GO Arif
-5. (opsional) PDF presentasi landscape, office-academic redundan
-6. **BELUM (checkpoint 9.x)**: brand gate constraint profile, NLI router auto-invoke, model re-verify, restart-hang fix, multimodal intake, cleanup buku PKN, memory persistence, D-hard router (tunda)
-
-## 7. DEPLOY & ROLLBACK
-- Skill factory: `cd ~/Joki-tugas- && git pull && bash jarvis_document_factory/deploy_document_factory.sh`
-- PIPA4 hook: `cp -f ~/jarvis/scripts/pipa4_hook.py ~/.hermes/scripts/pipa4_hook.py && chmod +x ~/.hermes/scripts/pipa4_hook.py`
-- Deploy scripts: `deploy_docfactory_routing.sh`, `deploy_anti_fallback.sh`, `deploy_academic_search.sh`, `deploy_pipa4_final_gate.sh`, dll.
-- Rollback: backup file. Kill-switch: PIPA4_AUTO=off, MISTAKE_LOGGER_OFF, ACTION_GATE_MODE=off.
-
-## 8. KALAU PAKAI AGENT LAIN
-- Skill produksi = Joki-tugas-, tuning/infra/PIPA4 = jarvis. Baca RESUME + CHECKPOINT + LANJUTAN + jarvis-conventions.
+## 8. PEMISAHAN REPO
+- Joki-tugas- = SKILL PRODUKSI SAJA (renderer, gate, spec, examples)
+- jarvis = INFRA/TUNING (scripts, pipa4_hook, academic-search, handoff)
+- JANGAN campur.
