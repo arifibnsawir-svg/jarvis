@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Deploy academic-search skill (cari + verifikasi sumber ilmiah, anti-halu) ke Acer.
 # Scoped dari zLanqing/codex-claude-academic-skills (MIT): paper-lookup + literature-review + citation-management.
-# Multi-database (Scholar + OpenAlex + Crossref + Semantic Scholar + PubMed/arXiv + Garuda/SINTA) -> VERIFY wajib -> cite-only-verified.
+# Multi-database (Scholar + OpenAlex + Crossref + Semantic Scholar + PubMed/arXiv + Garuda/SINTA) -> RELEVANCE FILTER -> VERIFY wajib -> cite-only-verified.
 # No-key (kecuali Semantic Scholar opsional), dep requests+scholarly (no native binary). Idempotent + backup. No restart (aktif /new).
 set -uo pipefail
 SK="$HOME/.hermes/skills"
@@ -36,6 +36,9 @@ DOI halu: 10.99999/jurnal.halu.00000
 MD
 "$PYBIN" "$DST/literature-review/scripts/verify_citations.py" /tmp/_acadtest.md 2>&1 | grep -E "Total DOIs|Verified:|Failed:" || echo "(smoke-test: cek manual / network)"
 
+echo "=== [4b] SMOKE-TEST: relevance_filter.py (selftest, no-network) ==="
+"$PYBIN" "$DST/literature-review/scripts/relevance_filter.py" --selftest || echo "(relevance selftest: cek manual)"
+
 echo "=== [5] wire direktif sumber akademik + fix domain Garuda mati ==="
 if [ ! -f "$UM" ]; then echo "RESULT_WIRE: FAIL (USER.md tidak ada)"; else
   cp "$UM" "$UM.bak.$ts"; echo "BACKUP: $UM.bak.$ts"
@@ -48,7 +51,7 @@ if [ ! -f "$UM" ]; then echo "RESULT_WIRE: FAIL (USER.md tidak ada)"; else
     echo "RESULT_WIRE: SKIP_DIRECTIVE (sudah ada)"
   else
     cat >> "$UM" <<'TXT'
-ACADEMIC SOURCE SEARCH (always, untuk artefak akademik apa pun): pakai skill academic-search untuk MENCARI sumber, JANGAN mengandalkan ingatan atau scrape Google Scholar sendirian. Alur WAJIB: (1) SEARCH multi-database - Indonesia-first via OpenAlex/Crossref (filter jurnal Indonesia), Garuda (garuda.kemdiktisaintek.go.id), SINTA (sinta.kemdiktisaintek.go.id), repositori .ac.id; PLUS Google Scholar (scholarly, best-effort), Semantic Scholar, PubMed/arXiv untuk coverage (minimal 3 database). (2) dedup+rank via literature-review/scripts/search_databases.py. (3) VERIFIKASI WAJIB tiap sitasi via literature-review/scripts/verify_citations.py (DOI resolve di CrossRef + URL kebuka) SEBELUM dikutip; sitasi yang gagal-verify DIBUANG, tidak pernah dikutip. (4) kutip HANYA sumber terverifikasi (doi_to_bibtex.py untuk BibTeX). Kredibilitas non-negotiable: JANGAN sajikan DOI/link tanpa lolos verify; kalau tidak ada yang terverifikasi -> 'belum nemu sumber terverifikasi' (cite-or-abstain). Aturan ini menimpa alur apa pun yang mengutip dari ingatan.
+ACADEMIC SOURCE SEARCH (always, untuk artefak akademik apa pun): pakai skill academic-search untuk MENCARI sumber, JANGAN mengandalkan ingatan atau scrape Google Scholar sendirian. Alur WAJIB: (1) SEARCH multi-database - Indonesia-first via OpenAlex/Crossref (filter jurnal Indonesia), Garuda (garuda.kemdiktisaintek.go.id), SINTA (sinta.kemdiktisaintek.go.id), repositori .ac.id; PLUS Google Scholar (scholarly, best-effort), Semantic Scholar, PubMed/arXiv untuk coverage (minimal 3 database). (2) dedup+rank via literature-review/scripts/search_databases.py. (3) SARING RELEVANSI via literature-review/scripts/relevance_filter.py (skoring topik; sumber tangensial dibuang SEBELUM verify - DOI valid tak menjamin relevan). (4) VERIFIKASI WAJIB tiap sitasi via literature-review/scripts/verify_citations.py (DOI resolve di CrossRef + URL kebuka) SEBELUM dikutip; sitasi yang gagal-verify DIBUANG, tidak pernah dikutip. (5) kutip HANYA sumber relevan + terverifikasi (doi_to_bibtex.py untuk BibTeX). Kredibilitas non-negotiable: JANGAN sajikan DOI/link tanpa lolos verify; kalau tidak ada yang relevan+terverifikasi -> 'belum nemu sumber terverifikasi' (cite-or-abstain). Aturan ini menimpa alur apa pun yang mengutip dari ingatan.
 TXT
     echo "RESULT_WIRE: SUCCESS (direktif ditambah)"
   fi
