@@ -7,6 +7,7 @@ Token-efficient design:
   - JSON deterministik memutuskan: PASS or NEEDS_REVISION
 
 ROUTING: Direct to 9Router (port 20128), bypass Guardian.
+INPUT: Truncated to 3000 chars to prevent timeout (14K+ payload kills response).
 
 Evaluates against 6 criteria.
 """
@@ -39,32 +40,19 @@ Return ONLY valid JSON (no markdown, no explanation).
   "fix_suggestions": ["short fix 1"]
 }
 
-Keep strengths/weaknesses/fix_suggestions BRIEF (under 80 chars each).
-No line breaks inside JSON values.
-
 ANALYSIS TO EVALUATE:
 """
 
 
 def _extract_json(text: str) -> dict | None:
-    """Extract a JSON object from text that may contain reasoning prefix/suffix.
-
-    Tries multiple strategies:
-      1. Raw parse (clean text is pure JSON)
-      2. Strip markdown fences + parse
-      3. Regex: first { ... } block (non-greedy)
-      4. Regex: nested { ... } with one level of nesting
-      5. Regex: find ALL { ... } blocks, try each
-    """
+    """Extract JSON from text that may contain reasoning prefix/suffix."""
     cleaned = text.strip()
 
-    # Strategy 1: raw parse
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError:
         pass
 
-    # Strategy 2: strip markdown fences
     for prefix, suffix in [("```json\n", "```"), ("```\n", "```")]:
         if cleaned.startswith(prefix) and cleaned.endswith(suffix):
             inner = cleaned[len(prefix):-len(suffix)].strip()
@@ -73,11 +61,9 @@ def _extract_json(text: str) -> dict | None:
             except json.JSONDecodeError:
                 pass
 
-    # Strategy 3-5: regex extraction
     for pattern in [
-        r"\{[^{}]*\}",                     # flat: { "key": "val" }
-        r"\{(?:[^{}]|\{[^{}]*\})*\}",      # 1-level nested
-        r"\{.*?\}(?!\s*\{)",               # greedy: first complete object
+        r"\{[^{}]*\}",
+        r"\{(?:[^{}]|\{[^{}]*\})*\}",
     ]:
         match = re.search(pattern, cleaned, re.DOTALL)
         if match:
@@ -86,7 +72,6 @@ def _extract_json(text: str) -> dict | None:
             except json.JSONDecodeError:
                 continue
 
-    # Strategy 5: find ALL possible JSON start/end
     starts = [m.start() for m in re.finditer(r"\{", cleaned)]
     for start in starts:
         depth = 0
@@ -104,11 +89,18 @@ def _extract_json(text: str) -> dict | None:
     return None
 
 
-def evaluate(analysis_text: str, timeout: int = 120) -> dict:
-    """Call jarvis-reason directly via 9Router to evaluate analysis quality."""
+def evaluate(analysis_text: str, timeout: int = 180) -> dict:
+    """Call jarvis-reason directly via 9Router to evaluate quality.
+
+    Truncates input to 3000 chars to prevent timeout on large payloads.
+    """
     import urllib.request
 
-    prompt = EVAL_PROMPT + analysis_text[:6000]
+    # Truncate to prevent timeout: first + last 1500 chars
+    if len(analysis_text) > 3000:
+        analysis_text = analysis_text[:1500] + "\n...\n" + analysis_text[-1500:]
+
+    prompt = EVAL_PROMPT + analysis_text
 
     payload = json.dumps({
         "model": "jarvis-reason",
@@ -129,7 +121,6 @@ def evaluate(analysis_text: str, timeout: int = 120) -> dict:
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             raw_body = resp.read().decode("utf-8")
-            # 9Router may return JSON with nested content
             api_response = json.loads(raw_body)
             content = api_response["choices"][0]["message"]["content"]
             model_used = api_response.get("model", model_used)
@@ -141,7 +132,6 @@ def evaluate(analysis_text: str, timeout: int = 120) -> dict:
             "overall_quality": 0,
         }
 
-    # Extract JSON from LLM response (may have reasoning prefix)
     verdict = _extract_json(content)
 
     if verdict is None:
@@ -162,7 +152,7 @@ def main() -> int:
     ap.add_argument("--file", help="File containing analysis text")
     ap.add_argument("--text", help="Analysis text directly")
     ap.add_argument("--json", action="store_true")
-    ap.add_argument("--timeout", type=int, default=120)
+    ap.add_argument("--timeout", type=int, default=180)
     args = ap.parse_args()
 
     if args.file:
