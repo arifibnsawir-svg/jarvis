@@ -4,6 +4,7 @@
   "target_page_max": 9999,
   "required_sections": [],
   "pattern_check_profile": "general",
+  "evidence_policy": "light",
   "human_review_required": true,
   "mode": "dry_run",
   "caveats": ["PDF_BINARY_FALLBACK", "PAGE_COUNT_PROXY_ONLY", "NON_ACADEMIC_AUDIENCE_AWARE"]
