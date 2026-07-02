@@ -8,8 +8,6 @@ Token-efficient design:
 
 ROUTING: Direct to 9Router (port 20128), bypass Guardian.
 INPUT: Truncated to 3000 chars to prevent timeout (14K+ payload kills response).
-
-Evaluates against 6 criteria.
 """
 from __future__ import annotations
 
@@ -45,14 +43,16 @@ ANALYSIS TO EVALUATE:
 
 
 def _extract_json(text: str) -> dict | None:
-    """Extract JSON from text that may contain reasoning prefix/suffix."""
+    """Extract first valid JSON object from any text.
+
+    Handles: pure JSON, markdown fences, reasoning text before/after JSON,
+    nested structures, streaming artifacts.
+    """
     cleaned = text.strip()
+    if not cleaned:
+        return None
 
-    try:
-        return json.loads(cleaned)
-    except json.JSONDecodeError:
-        pass
-
+    # Strategy 1: strip markdown fences then parse
     for prefix, suffix in [("```json\n", "```"), ("```\n", "```")]:
         if cleaned.startswith(prefix) and cleaned.endswith(suffix):
             inner = cleaned[len(prefix):-len(suffix)].strip()
@@ -61,17 +61,14 @@ def _extract_json(text: str) -> dict | None:
             except json.JSONDecodeError:
                 pass
 
-    for pattern in [
-        r"\{[^{}]*\}",
-        r"\{(?:[^{}]|\{[^{}]*\})*\}",
-    ]:
-        match = re.search(pattern, cleaned, re.DOTALL)
-        if match:
-            try:
-                return json.loads(match.group(0))
-            except json.JSONDecodeError:
-                continue
+    # Strategy 2: raw parse (pure JSON with no extra content)
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        pass
 
+    # Strategy 3: find first complete JSON object via bracket matching
+    # This is the most robust: walks the string matching { and } pairs
     starts = [m.start() for m in re.finditer(r"\{", cleaned)]
     for start in starts:
         depth = 0
@@ -81,10 +78,23 @@ def _extract_json(text: str) -> dict | None:
             elif cleaned[i] == "}":
                 depth -= 1
                 if depth == 0:
+                    candidate = cleaned[start:i + 1]
                     try:
-                        return json.loads(cleaned[start:i + 1])
+                        return json.loads(candidate)
                     except json.JSONDecodeError:
-                        break
+                        break  # try next start position
+
+    # Strategy 4: regex fallbacks
+    for pattern in [
+        r"\{(?:[^{}]|\{[^{}]*\})*\}",  # 1-level nested
+        r"\{[^{}]*\}",                   # flat only
+    ]:
+        match = re.search(pattern, cleaned, re.DOTALL)
+        if match:
+            try:
+                return json.loads(match.group(0))
+            except json.JSONDecodeError:
+                continue
 
     return None
 
@@ -96,7 +106,7 @@ def evaluate(analysis_text: str, timeout: int = 180) -> dict:
     """
     import urllib.request
 
-    # Truncate to prevent timeout: first + last 1500 chars
+    # Truncate to prevent timeout: representative sample
     if len(analysis_text) > 3000:
         analysis_text = analysis_text[:1500] + "\n...\n" + analysis_text[-1500:]
 
@@ -118,25 +128,49 @@ def evaluate(analysis_text: str, timeout: int = 180) -> dict:
     )
 
     model_used = "unknown"
+    content = ""
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             raw_body = resp.read().decode("utf-8")
-            api_response = json.loads(raw_body)
-            content = api_response["choices"][0]["message"]["content"]
+
+            # 9Router may append reasoning text after JSON.
+            # Extract just the API response object first.
+            api_response = _extract_json(raw_body)
+            if api_response is None:
+                return {
+                    "verdict": "API_RESPONSE_NOT_JSON",
+                    "error": "Cannot parse 9Router response",
+                    "raw": raw_body[:300],
+                    "model_used": "none",
+                    "overall_quality": 0,
+                }
+
+            choices = api_response.get("choices", [])
+            if not choices:
+                return {
+                    "verdict": "NO_CHOICES",
+                    "error": "9Router returned empty choices",
+                    "raw": json.dumps(api_response)[:300],
+                    "model_used": api_response.get("model", "unknown"),
+                    "overall_quality": 0,
+                }
+
+            content = choices[0].get("message", {}).get("content", "")
             model_used = api_response.get("model", model_used)
     except Exception as e:
         return {
-            "verdict": "EVALUATOR_ERROR",
+            "verdict": "REQUEST_FAILED",
             "error": str(e)[:200],
             "model_used": "none",
             "overall_quality": 0,
         }
 
+    # Extract verdict JSON from the LLM's content response
     verdict = _extract_json(content)
 
     if verdict is None:
         return {
-            "verdict": "JSON_NOT_FOUND",
+            "verdict": "VERDICT_NOT_FOUND",
             "model_used": model_used,
             "raw": content[:300],
             "overall_quality": 0,
