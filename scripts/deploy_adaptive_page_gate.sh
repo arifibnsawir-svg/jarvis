@@ -1,64 +1,53 @@
 #!/usr/bin/env bash
-# deploy_adaptive_page_gate.sh
-# Patches local PIPA4 phase5b audit scripts to make page-count check adaptive (anti-padding).
-# Prevents NEEDS_PAGE_TOPUP from blocking short/business documents.
-set -euo pipefail
+# deploy_adaptive_page_gate.sh (v2)
+# Makes PIPA4 page-count check adaptive (anti-padding) across ALL active audit .py scripts.
+# When DISABLE_PAGE_TOPUP=1 is set in env, the gate no longer emits NEEDS_PAGE_TOPUP.
+# Idempotent + per-file backup. No restart needed.
+set -uo pipefail
 
-TARGET_DIR="$HOME/.hermes/pipelines/pipa4/phase5b"
+BASE="$HOME/.hermes/pipelines/pipa4"
 TS="$(date +%Y%m%d_%H%M%S)"
+PATTERN='if f == "page_count":'
 
-echo "=== [1] Locating audit script ==="
-ACTIVE_FILE=""
-if [ -f "$TARGET_DIR/pipa4_audit.py" ]; then
-  ACTIVE_FILE="$TARGET_DIR/pipa4_audit.py"
-elif [ -f "$TARGET_DIR/pipa4_audit.bak" ]; then
-  ACTIVE_FILE="$TARGET_DIR/pipa4_audit.bak"
-fi
+echo "=== [1] Finding active audit scripts (*.py, excluding pycache) ==="
+FILES="$(grep -rlF "$PATTERN" "$BASE" --include='*.py' 2>/dev/null | grep -v '__pycache__' || true)"
 
-if [ -z "$ACTIVE_FILE" ]; then
-  echo "ERROR: Active audit script not found in $TARGET_DIR" >&2
-  exit 1
-fi
-
-echo "Found active audit script: $ACTIVE_FILE"
-cp "$ACTIVE_FILE" "${ACTIVE_FILE}.bak.${TS}"
-echo "Backup created: ${ACTIVE_FILE}.bak.${TS}"
-
-echo "=== [2] Applying Adaptive Page-Count Patch ==="
-# We replace the hardcoded "page_count" check to respect an env var or skip if non-academic/short.
-# Safe replacement using python's replace to ensure idempotency.
-python3 - <<PY
-import pathlib
-path = pathlib.Path("$ACTIVE_FILE")
-code = path.read_text(encoding="utf-8")
-
-# Let's replace the primary page_count check.
-# We make it skip if DISABLE_PAGE_TOPUP is in environment.
-old_check = 'if f == "page_count":'
-new_check = 'if f == "page_count" and not os.environ.get("DISABLE_PAGE_TOPUP"):'
-
-if old_check in code:
-    code = code.replace(old_check, new_check)
-    print("Patched check_page_count condition.")
+if [ -z "$FILES" ]; then
+  echo "No active .py with UNPATCHED pattern found. Checking if already patched..."
+  grep -rn "DISABLE_PAGE_TOPUP" "$BASE" --include='*.py' 2>/dev/null | grep -v '__pycache__' || echo "(no patched marker either -- verify manually)"
+else
+  echo "$FILES"
+  echo "=== [2] Patching each ==="
+  echo "$FILES" | while IFS= read -r f; do
+    [ -f "$f" ] || continue
+    cp "$f" "${f}.bak.${TS}"
+    python3 - "$f" <<'PY'
+import sys, pathlib
+p = pathlib.Path(sys.argv[1])
+code = p.read_text(encoding="utf-8")
+old = 'if f == "page_count":'
+new = 'if f == "page_count" and not os.environ.get("DISABLE_PAGE_TOPUP"):'
+if new in code:
+    print("   already patched:", p.name)
 else:
-    print("Warning: exact match for 'if f == \"page_count\":' not found. Checking if already patched.")
-
-# Also clean pycache to force recompile
-pycache = path.parent / "__pycache__"
-if pycache.exists():
-    import shutil
-    shutil.rmtree(pycache)
-    print("Cleared pycache.")
-
-path.write_text(code, encoding="utf-8")
+    code = code.replace(old, new)
+    if "import os" not in code:
+        code = "import os\n" + code
+        print("   + added import os")
+    p.write_text(code, encoding="utf-8")
+    print("   patched:", p.name)
 PY
-
-# If the active file was .bak, make sure it's copied or handled
-if [ "$(basename "$ACTIVE_FILE")" = "pipa4_audit.bak" ]; then
-  echo "Active file is .bak. Creating pipa4_audit.py from it to ensure Python uses the patched version."
-  cp -f "$ACTIVE_FILE" "$TARGET_DIR/pipa4_audit.py"
+  done
 fi
 
-echo "=== [3] Verifying Patch ==="
-grep -n "page_count" "$TARGET_DIR/pipa4_audit.py" || true
-echo "=== SUCCESS: Adaptive Page Gate Deployed. Run with DISABLE_PAGE_TOPUP=1 to bypass. ==="
+echo "=== [3] Clearing pycache under pipa4 ==="
+find "$BASE" -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
+echo "cleared"
+
+echo "=== [4] Verify: any UNPATCHED active file left? (should be empty) ==="
+LEFT="$(grep -rlF "$PATTERN" "$BASE" --include='*.py' 2>/dev/null | grep -v '__pycache__' || true)"
+if [ -z "$LEFT" ]; then echo "OK: no unpatched active .py remain."; else echo "STILL UNPATCHED:"; echo "$LEFT"; fi
+
+echo "=== [5] Show patched lines ==="
+grep -rn 'DISABLE_PAGE_TOPUP' "$BASE" --include='*.py' 2>/dev/null | grep -v '__pycache__' || true
+echo "=== DONE. Bypass short/business docs with: DISABLE_PAGE_TOPUP=1 ==="
