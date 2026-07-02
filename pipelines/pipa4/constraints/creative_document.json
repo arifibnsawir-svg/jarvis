@@ -1,0 +1,10 @@
+{
+  "artifact_type": "creative_writing",
+  "target_page_min": 1,
+  "target_page_max": 9999,
+  "required_sections": [],
+  "pattern_check_profile": "creative",
+  "human_review_required": true,
+  "mode": "dry_run",
+  "caveats": ["PDF_BINARY_FALLBACK", "PAGE_COUNT_PROXY_ONLY", "NON_ACADEMIC_NO_CITATION_REQUIRED"]
+}
