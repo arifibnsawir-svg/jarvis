@@ -6,21 +6,9 @@ Token-efficient design:
   - jarvis-reason (9Router combo, expensive, called ONCE) evaluates quality
   - JSON deterministik memutuskan: PASS or NEEDS_REVISION
 
-ROUTING (v2): Direct to 9Router (port 20128), bypass Guardian (port 20129).
-  Guardian over-protective — flags evaluator as "security critical", downgrades
-  to random models. 9Router direct avoids routing interference.
+ROUTING: Direct to 9Router (port 20128), bypass Guardian.
 
-Evaluates against 6 criteria:
-  1. NEURO-ARC framework present
-  2. Multi-perspective (min 3)
-  3. Anti-halu labels used
-  4. Specific to user's context (not generic)
-  5. Contradictions exposed (not hidden)
-  6. Actionable recommendations
-
-Usage:
-  echo "<deep analysis output>" | python3 deep_analysis_evaluator.py
-  python3 deep_analysis_evaluator.py --file /tmp/analysis_output.txt
+Evaluates against 6 criteria.
 """
 from __future__ import annotations
 
@@ -31,7 +19,6 @@ import re
 import sys
 import time
 
-# v2: Direct to 9Router, bypass Guardian routing
 _NINEROUTER_URL = "http://localhost:20128/v1/chat/completions"
 _NINEROUTER_KEY = os.environ.get("NINEROUTER_KEY", os.environ.get("ROUTER_KEY", ""))
 
@@ -47,16 +34,74 @@ Return ONLY valid JSON (no markdown, no explanation).
   "contradictions_exposed": true/false,
   "actionable_recommendations": true/false,
   "overall_quality": 0-100,
-  "strengths": ["short strength 1", "short strength 2"],
-  "weaknesses": ["short weakness 1", "short weakness 2"],
+  "strengths": ["short strength 1"],
+  "weaknesses": ["short weakness 1"],
   "fix_suggestions": ["short fix 1"]
 }
 
 Keep strengths/weaknesses/fix_suggestions BRIEF (under 80 chars each).
-Do NOT include line breaks inside the JSON string values.
+No line breaks inside JSON values.
 
 ANALYSIS TO EVALUATE:
 """
+
+
+def _extract_json(text: str) -> dict | None:
+    """Extract a JSON object from text that may contain reasoning prefix/suffix.
+
+    Tries multiple strategies:
+      1. Raw parse (clean text is pure JSON)
+      2. Strip markdown fences + parse
+      3. Regex: first { ... } block (non-greedy)
+      4. Regex: nested { ... } with one level of nesting
+      5. Regex: find ALL { ... } blocks, try each
+    """
+    cleaned = text.strip()
+
+    # Strategy 1: raw parse
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        pass
+
+    # Strategy 2: strip markdown fences
+    for prefix, suffix in [("```json\n", "```"), ("```\n", "```")]:
+        if cleaned.startswith(prefix) and cleaned.endswith(suffix):
+            inner = cleaned[len(prefix):-len(suffix)].strip()
+            try:
+                return json.loads(inner)
+            except json.JSONDecodeError:
+                pass
+
+    # Strategy 3-5: regex extraction
+    for pattern in [
+        r"\{[^{}]*\}",                     # flat: { "key": "val" }
+        r"\{(?:[^{}]|\{[^{}]*\})*\}",      # 1-level nested
+        r"\{.*?\}(?!\s*\{)",               # greedy: first complete object
+    ]:
+        match = re.search(pattern, cleaned, re.DOTALL)
+        if match:
+            try:
+                return json.loads(match.group(0))
+            except json.JSONDecodeError:
+                continue
+
+    # Strategy 5: find ALL possible JSON start/end
+    starts = [m.start() for m in re.finditer(r"\{", cleaned)]
+    for start in starts:
+        depth = 0
+        for i in range(start, len(cleaned)):
+            if cleaned[i] == "{":
+                depth += 1
+            elif cleaned[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        return json.loads(cleaned[start:i + 1])
+                    except json.JSONDecodeError:
+                        break
+
+    return None
 
 
 def evaluate(analysis_text: str, timeout: int = 120) -> dict:
@@ -77,64 +122,47 @@ def evaluate(analysis_text: str, timeout: int = 120) -> dict:
         headers["Authorization"] = f"Bearer {_NINEROUTER_KEY}"
 
     req = urllib.request.Request(
-        _NINEROUTER_URL,
-        data=payload,
-        headers=headers,
-        method="POST",
+        _NINEROUTER_URL, data=payload, headers=headers, method="POST",
     )
 
+    model_used = "unknown"
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            result = json.loads(resp.read().decode("utf-8"))
-            content = result["choices"][0]["message"]["content"]
-            model_used = result.get("model", "unknown")
+            raw_body = resp.read().decode("utf-8")
+            # 9Router may return JSON with nested content
+            api_response = json.loads(raw_body)
+            content = api_response["choices"][0]["message"]["content"]
+            model_used = api_response.get("model", model_used)
     except Exception as e:
         return {
             "verdict": "EVALUATOR_ERROR",
-            "error": str(e),
+            "error": str(e)[:200],
             "model_used": "none",
             "overall_quality": 0,
         }
 
-    # Parse JSON from response — try multiple strategies
-    cleaned = content.strip()
+    # Extract JSON from LLM response (may have reasoning prefix)
+    verdict = _extract_json(content)
 
-    for strategy_name, strategy_fn in [
-        ("raw", lambda c: json.loads(c)),
-        ("strip_fence", lambda c: json.loads(
-            c[4:-3] if c.startswith("```") and c.endswith("```") else
-            (c[5:-3] if c.startswith("```json") and c.endswith("```") else c)
-        )),
-        ("regex_basic", lambda c: json.loads(re.search(r"\{[^{}]*\}", c, re.DOTALL).group(0)) if re.search(r"\{[^{}]*\}", c, re.DOTALL) else {}),
-        ("regex_nested", lambda c: json.loads(re.search(r"\{(?:[^{}]|\{[^{}]*\})*\}", c, re.DOTALL).group(0)) if re.search(r"\{(?:[^{}]|\{[^{}]*\})*\}", c, re.DOTALL) else {}),
-    ]:
-        try:
-            verdict = strategy_fn(cleaned)
-            if isinstance(verdict, dict) and "verdict" in verdict:
-                verdict["model_used"] = model_used
-                verdict["evaluated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
-                return verdict
-        except (json.JSONDecodeError, AttributeError, KeyError):
-            continue
+    if verdict is None:
+        return {
+            "verdict": "JSON_NOT_FOUND",
+            "model_used": model_used,
+            "raw": content[:300],
+            "overall_quality": 0,
+        }
 
-    # All strategies failed
-    return {
-        "verdict": "JSON_PARSE_ERROR",
-        "model_used": model_used,
-        "raw": cleaned[:300],
-        "evaluated_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-        "overall_quality": 0,
-    }
+    verdict["model_used"] = model_used
+    verdict["evaluated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+    return verdict
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(
-        description="Deep Analysis Quality Evaluator — jarvis-reason via 9Router direct"
-    )
+    ap = argparse.ArgumentParser(description="Deep Analysis Quality Evaluator")
     ap.add_argument("--file", help="File containing analysis text")
     ap.add_argument("--text", help="Analysis text directly")
-    ap.add_argument("--json", action="store_true", help="Output machine-readable JSON")
-    ap.add_argument("--timeout", type=int, default=120, help="9Router request timeout")
+    ap.add_argument("--json", action="store_true")
+    ap.add_argument("--timeout", type=int, default=120)
     args = ap.parse_args()
 
     if args.file:
@@ -150,7 +178,7 @@ def main() -> int:
         text = sys.stdin.read().strip()
 
     if not text or len(text) < 100:
-        print("ERROR: Analysis text too short (< 100 chars). Save full output first.")
+        print("ERROR: Analysis text too short", file=sys.stderr)
         return 2
 
     print(f"Evaluating {len(text)} chars via 9Router (jarvis-reason)...", file=sys.stderr)
