@@ -2,23 +2,18 @@
 # =============================================================================
 # deploy_deep_analysis_mode.sh
 # -----------------------------------------------------------------------------
-# DEEP ANALYSIS MODE — Anti-Halu Deep Thinking with Multi-Perspective
+# DEEP ANALYSIS MODE — Anti-Halu Multi-Perspective with jarvis-reason + PIPA4
 #
-# Position in Grand Design:
-#   MYTHOS (wild, gate BYPASS) → DEEP ANALYSIS (anti-halu, council annotate)
-#   → FABLE (production, gate full)
+# COGNITIVE STACK:
+#   Combo: jarvis-reason (Opus 4.8 → GPT 5.5 → Mistral Large 3 → Qwen 3.5)
+#   Framework: NEURO-ARC + multi-perspective
+#   Quality: PIPA4 council annotation (advisory, NOT blocking)
+#   Labels: [TERVERIFIKASI] / [ASUMSI] / [PERLU DATA]
 #
-# Trigger: "analisa mendalam", "riset", "deep dive", "multiperspektif",
-#          "bedah", "telaah", "kaji", "eksplorasi sistematis"
-#
-# What it does:
-#   1. NEURO-ARC framework applied to structure the analysis
-#   2. Multi-perspective: minimal 3 sudut pandang berbeda
-#   3. Anti-halu: klaim faktual di-tag [TERVERIFIKASI] / [ASUMSI] / [PERLU DATA]
-#   4. Kontradiksi internal explicit — jangan ditutupi
-#   5. Council annotation opsional: kalau ada klaim kuantitatif penting
-#   6. Output bukan deliverable — tidak perlu gate PASS
-#   7. Hasil masuk episodic memory (decay 30 hari untuk deep analysis)
+# POSITION in Grand Design:
+#   MYTHOS (wild, jarvis-agent, gate BYPASS)
+#     → DEEP ANALYSIS (jarvis-reason, council annotate, anti-halu)
+#     → FABLE (jarvis-agent/run.py, gate full, council PASS/FAIL)
 #
 # SOFT layer: USER.md directive. No restart.
 # =============================================================================
@@ -31,21 +26,57 @@ TS="$(date +%Y%m%d_%H%M%S)"
 cp "$USER_MD" "${USER_MD}.bak.${TS}"
 echo "backup: ${USER_MD}.bak.${TS}"
 
-M="## DEEP ANALYSIS MODE — Anti-Halu Multi-Perspective Thinking"
-if grep -qF "$M" "$USER_MD"; then
-  echo "SKIP: directive already exists: $M"
-  exit 0
-fi
+M="## DEEP ANALYSIS MODE — Anti-Halu Multi-Perspective with jarvis-reason + PIPA4"
+if grep -qF "## DEEP ANALYSIS MODE" "$USER_MD"; then
+  echo "=== Updating existing DEEP ANALYSIS directive to add jarvis-reason + PIPA4 enforcement ==="
+  # Add jarvis-reason + PIPA4 lines to existing directive
+  sed -i '/^## DEEP ANALYSIS MODE/,/^## /{
+    /^## DEEP ANALYSIS MODE/ a\
+\
+### COGNITIVE STACK (MANDATORY)\
+\
+Mode ini menggunakan COMBO TERBAIK: **jarvis-reason** (Opus 4.8 → GPT 5.5 → Mistral Large 3 → Qwen 3.5).\
+Ini bukan chatting biasa. Ini PENGAMBILAN KEPUTUSAN. Setiap analisis harus TAJAM, AKURAT, dan ANTI-HALU.\
+\
+PIPA4 Council TETAP BERJALAN sebagai lapis verifikasi — bukan untuk memblokir, tapi untuk MENGANOTASI:\
+  - Setiap klaim kuantitatif diperiksa konsistensinya\
+  - Kontradiksi internal di-flag\
+  - Asumsi yang tidak dilabel akan DIDETEKSI\
+  - false_READY_count HARUS 0\
+\
+Council = ADVISORY di mode ini. Dia tidak memblokir output. Dia memastikan output LAYAK DIPERCAYA.\
+Karena ini urusan PEMIKIRAN dan PENGAMBILAN KEPUTUSAN — bukan sekadar brainstorming liar.
+  }' "$USER_MD"
+  echo "OK: jarvis-reason + PIPA4 enforcement added to existing DEEP ANALYSIS directive."
+else
+  cat >> "$USER_MD" <<'DIRECTIVE'
 
-cat >> "$USER_MD" <<'DIRECTIVE'
-
-## DEEP ANALYSIS MODE — Anti-Halu Multi-Perspective Thinking
+## DEEP ANALYSIS MODE — Anti-Halu Multi-Perspective with jarvis-reason + PIPA4
 Aktif saat user meminta pemikiran mendalam: "analisa mendalam", "riset",
 "deep dive", "multiperspektif", "bedah", "telaah", "kaji", "eksplorasi
 sistematis", "studi kelayakan", "analisa pasar", "strategi bisnis".
 
 Mode ini BUKAN Mythos (liar total) dan BUKAN Fable (produksi dokumen).
-Mode ini adalah ANALISIS MENDALAM dengan standar anti-halu.
+Mode ini adalah ANALISIS MENDALAM untuk PENGAMBILAN KEPUTUSAN.
+
+### COGNITIVE STACK (MANDATORY)
+
+Mode ini menggunakan COMBO TERBAIK: **jarvis-reason**
+(Opus 4.8 → GPT 5.5 → Mistral Large 3 → Qwen 3.5 → MiMo 2.5 Pro →
+Kimi K2.6 → GPT-4o → Sonnet 4.5).
+Ini bukan chatting biasa. Ini PENGAMBILAN KEPUTUSAN.
+Setiap analisis harus TAJAM, AKURAT, dan ANTI-HALU.
+
+PIPA4 Council TETAP BERJALAN sebagai lapis verifikasi advisory:
+  - Setiap klaim kuantitatif diperiksa konsistensinya
+  - Kontradiksi internal di-flag
+  - Asumsi yang tidak dilabel akan DIDETEKSI
+  - false_READY_count HARUS 0
+
+Council = ADVISORY di mode ini. Dia tidak memblokir output.
+Dia memastikan output LAYAK DIPERCAYA.
+Karena ini urusan PEMIKIRAN dan PENGAMBILAN KEPUTUSAN —
+bukan sekadar brainstorming liar.
 
 ### KERANGKA WAJIB: NEURO-ARC
 
@@ -89,16 +120,10 @@ Untuk analisis yang lebih besar, tambahkan:
    [PERLU DATA] = butuh riset lebih lanjut, spekulatif
 
 2. Kalau ada KONTRADIKSI internal: JANGAN tutupi. Tampilkan explicit.
-   "Sisi A mengatakan X, tapi sisi B mengatakan Y. Kontradiksi ini belum
-   terselesaikan karena [alasan]."
 
 3. Kalau ada GAP PENGETAHUAN: JANGAN isi dengan spekulasi.
-   "Saat ini kita tidak tahu [X]. Untuk mengetahuinya, perlu [riset/data]."
 
 4. Angka WAJIB punya sumber atau dilabel [ASUMSI].
-   JANGAN: "Market size-nya 500 miliar."
-   TAPI: "Market size kardus bekas di Indonesia [PERLU DATA — estimasi
-   kasar berdasarkan volume ekspor-impor: 200-500 miliar]."
 
 5. Untuk klaim kuantitatif KRUSIAL, opsional jalankan verifikasi:
    - Cek via web search (ddgs) apakah ada sumber independen
@@ -108,28 +133,13 @@ Untuk analisis yang lebih besar, tambahkan:
 
 | Aspek | Mythos | Deep Analysis | Fable |
 |-------|--------|---------------|-------|
+| Combo | jarvis-agent | **jarvis-reason** | jarvis-agent (tulis) + jarvis-reason (council) |
 | Kreativitas | Bebas total | Bebas + terstruktur | Terbatas (fakta only) |
-| Verifikasi | Tidak ada | Anotasi [VERIFIED/ASUMSI/DATA] | Gate deterministik |
+| Verifikasi | Tidak ada | Council annotate + [LABEL] | Gate deterministik |
 | Output | Spekulasi mentah | Analisis terstruktur | Deliverable final |
-| Gate | BYPASS | Council advisory (opsional) | Gate penuh (wajib PASS) |
+| Gate | BYPASS | Council advisory | Gate penuh (wajib PASS) |
 | Memory | Episodic 7 hari | Episodic 30 hari | Crystallized permanen |
 | Multi-perspektif | Opsional | WAJIB (min 3) | Jika relevan |
-
-### CONTOH ALUR
-
-User: "analisa mendalam — gimana prospek bisnis kardus di Bekasi 2026-2027?"
-
-Kamu:
-  1. retrieve --query "kardus bekasi" → cek memory
-  2. Neuro-Arc framework (Narasi, Entitas, Ukuran, Relasi, Output)
-  3. 3 perspektif: Optimis (market tumbuh), Pesimis (resesi), Kontrarian
-     (plastik & reusable packaging gantiin kardus)
-  4. Setiap klaim di-tag [TERVERIFIKASI] / [ASUMSI] / [PERLU DATA]
-  5. Kontradiksi explicit: "Supplier bilang demand naik, tapi data BPS
-     menunjukkan industri manufaktur turun 3%."
-  6. Rekomendasi actionable: "Fokus ke UMKM makanan/minuman karena
-     mereka paling tahan resesi. Hindari dependency ke manufaktur besar."
-  7. Auto-ingest ke episodic memory dengan type: insight, decay 30 hari
 
 ### YANG DILARANG
 
@@ -141,15 +151,19 @@ Kamu:
 - ❌ Klaim DONE/READY — ini analisis, bukan deliverable
 
 Mode ini menjembatani Mythos (liar) dan Fable (ketat).
-Analisis mendalam yang bisa lo percaya, tanpa kehilangan kreativitas.
+Combo terbaik + PIPA ketat = keputusan yang bisa lo percaya.
 DIRECTIVE
+  echo "OK: directive appended"
+fi
 
 echo "=== PROOF ==="
-grep -nF "$M" "$USER_MD"
+grep -nF "DEEP ANALYSIS MODE" "$USER_MD"
+grep -nF "jarvis-reason" "$USER_MD" | grep -i "deep\|analysis" | head -3
 echo "---"
 echo "=== DEPLOY COMPLETE ==="
-echo "DEEP ANALYSIS mode active."
-echo "Trigger: analisa mendalam, riset, deep dive, multiperspektif, bedah, telaah"
+echo "DEEP ANALYSIS with jarvis-reason + PIPA4 council annotation."
+echo "Combo: Opus 4.8 → GPT 5.5 → Mistral Large 3 → Qwen 3.5"
+echo "Council: advisory annotation, NOT blocking"
 echo "Anti-halu: [TERVERIFIKASI] / [ASUMSI] / [PERLU DATA]"
 echo "Multi-perspektif: Optimis, Pesimis, Kontrarian (minimal)"
 echo "rollback: cp ${USER_MD}.bak.${TS} $USER_MD"
