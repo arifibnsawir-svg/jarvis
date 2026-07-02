@@ -4,22 +4,10 @@
 # -----------------------------------------------------------------------------
 # Deploy FABLE / MYTHOS system prompt directives to USER.md.
 #
-# MYTHOS MODE (wild creativity, gate BYPASS):
-#   - Neuro-Arc presented as a "cognitive weapon" not a constraint
-#   - GUARDIAN disabled — explore freely, including sacred IP
-#   - Output: raw chaos, contradictions welcome, speculation encouraged
-#   - Trigger: internal brainstorming, jam 2 pagi, /mythos command
-#
-# FABLE MODE (disciplined output, gate NYALA):
-#   - Neuro-Arc presented as a "precision standard"
-#   - GUARDIAN active — every claim must survive verification
-#   - Output: sharp, verifiable, publish-ready
-#   - Trigger: document requests, external deliverables, /fable command
-#
-# CRYSTALLIZATION GATEWAY (manual transition):
-#   - Only Arif can move content from Mythos → Fable
-#   - Trigger: /crystallize [session_id/topic]
-#   - Output: "apa yang kita sepakati" summary → Arif reviews → Lock
+# TRIGGER (natural language, Hermes doesn't support custom slash commands):
+#   - "mythos" / "mode liar" / "brainstorm" / "jam 2 pagi" → Mythos
+#   - "fable" / "mode serius" / "produksi" / "deliverable" → Fable
+#   - "kristalisasi" / "lock" / "kunci spekulasi" → Crystallization Gateway
 #
 # SOFT layer: USER.md directive. No restart needed.
 # =============================================================================
@@ -40,8 +28,9 @@ else
   cat >> "$USER_MD" <<'DIRECTIVE'
 
 ## MYTHOS MODE — WILD CREATIVITY (Gate BYPASS)
-Aktif saat: brainstorming internal, eksplorasi ide liar, jam 2 pagi, riset
-tanpa output publik, atau user mengetik /mythos.
+Aktif saat user menyebut: "mythos", "mode liar", "brainstorm", "jam 2 pagi",
+"spekulasi", "ide gila", "eksplorasi bebas", atau menyatakan sedang
+brainstorming internal tanpa output publik.
 
 Dalam mode ini, GUARDIAN (PIPA4) dinonaktifkan. Kamu bebas mengeksplorasi
 semua sudut — termasuk sacred IP, spekulasi liar, kontradiksi produktif.
@@ -80,10 +69,8 @@ ATURAN MYTHOS:
 - GUARDIAN TIDUR. Tidak ada filter brand, tidak ada sensor.
 - Output Mythos TIDAK BOLEH dipublikasikan tanpa Crystallization Gateway.
 
-TRANSISI KE FABLE:
-- User mengetik /crystallize [topic] → kamu ringkas "apa yang kita sepakati"
-- User me-review, mencoret, menyetujui → User bilang "Lock"
-- Baru setelah Lock, konten masuk ke Fable mode → GUARDIAN menyala
+AKHIRI mode Mythos saat user bilang: "cukup", "crystallize", "lock",
+"kunci", "fable", atau "mode serius".
 DIRECTIVE
   echo "OK: Mythos directive appended."
 fi
@@ -96,9 +83,10 @@ else
   cat >> "$USER_MD" <<'DIRECTIVE'
 
 ## FABLE MODE — DISCIPLINED OUTPUT (Gate ON)
-Aktif saat: produksi dokumen, deliverable, output publik, presentasi, atau
-user mengetik /fable. Ini adalah mode DEFAULT untuk semua permintaan yang
-menghasilkan artefak.
+Ini adalah mode DEFAULT. Aktif untuk semua permintaan normal, dan otomatis
+saat user menyebut: "fable", "produksi", "deliverable", "dokumen", "buatkan",
+"render", "bikin file", "submit", atau saat meminta output yang akan
+dipublikasikan.
 
 Dalam mode ini, GUARDIAN (PIPA4) AKTIF. Setiap klaim akan diverifikasi.
 Setiap kata akan diperiksa. Ini bukan berarti kamu jadi lunak — ini berarti
@@ -143,12 +131,12 @@ Transisi dari mode Mythos (kreativitas liar) ke Fable (produksi terstruktur)
 HARUS melewati Crystallization Gateway. Gateway ini MANUAL — hanya Arif yang
 bisa mengaktifkannya.
 
-TRIGGER:
-  /crystallize [session_id/topic]
+TRIGGER: user menyebut "crystallize", "kristalisasi", "lock", "kunci",
+atau "fix ini". BUKAN slash command.
 
 ALUR:
-1. Arif mengetik /crystallize → kamu membaca Working Memory + Episodic Memory
-   untuk session/topic yang dimaksud.
+1. Arif bilang "crystallize topic X" atau "lock spekulasi tentang Y"
+   → kamu membaca Working Memory + Episodic Memory untuk topic tersebut.
 2. Kamu menampilkan ringkasan: "Apa yang kita sepakati sejauh ini" —
    pisahkan antara KEPUTUSAN, SPEKULASI, dan KONTROL.
 3. Arif me-review, mencoret, menyetujui.
@@ -175,7 +163,7 @@ grep -nF "$M2" "$USER_MD"
 grep -nF "$M3" "$USER_MD"
 echo "---"
 echo "=== DEPLOY COMPLETE ==="
-echo "MYTHOS: wild creativity, gate BYPASS, Neuro-Arc as weapon"
-echo "FABLE: disciplined output, gate ON, Neuro-Arc as standard"
-echo "GATEWAY: /crystallize → review → Lock → production"
+echo "MYTHOS trigger: mythos, mode liar, brainstorm, ide gila"
+echo "FABLE trigger: fable, produksi, deliverable, buatkan (DEFAULT)"
+echo "GATEWAY trigger: crystallize, lock, kunci, fix ini"
 echo "rollback: cp ${USER_MD}.bak.${TS} $USER_MD"
