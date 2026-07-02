@@ -54,8 +54,8 @@ from pathlib import Path
 
 LOG = Path.home() / ".hermes" / "logs" / "jarvis_shadow_resolver.jsonl"
 
-DOC_WORDS = r"(pdf|docx|pptx|powerpoint|word|dokumen|makalah|laporan|proposal|business plan|strategi bisnis|slide|presentasi)"
-VERIFY_WORDS = r"(verifikasi|verify|cek|audit|bukti|log|gate|hash|sha|compare|bandingkan|inspect)"
+DOC_WORDS = r"(pdf|docx|pptx|powerpoint|word|dokumen|makalah|laporan|proposal|bisnis|business plan|business|coffee|rencana bisnis|strategi|slide|presentasi)"
+VERIFY_WORDS = r"(verifikasi|verify|cek|audit|bukti|log|gate|hash|sha|compare|bandingkan|inspect|re-run|rerun|ulang)"
 SEARCH_WORDS = r"(cari|search|sumber|referensi|jurnal|paper|artikel|data)"
 CODE_WORDS = r"(repo|commit|patch|script|kode|deploy|git|github|fix|bug)"
 MEMORY_WORDS = r"(ingat|catat|handoff|resume|checkpoint|lesson|memory|keputusan)"
@@ -123,8 +123,13 @@ def detect_mismatch(expected: dict, planned: str) -> list[str]:
     issues = []
 
     if expected["intent"] == "document_gate_verification":
-        if any(x in p for x in ["bikin makalah", "buat makalah", "create new", "generate new", "mulai makalah"]):
+        if any(x in p for x in ["bikin makalah", "buat makalah", "lanjutkan makalah", "lanjut makalah",
+                                 "sambung makalah", "continue makalah", "mulai makalah", "create new",
+                                 "generate new", "garap makalah", "ngerjain makalah", "kerjain makalah"]):
             issues.append("planned_new_document_while_user_requested_verification")
+        if any(x in p for x in ["sambil", "sembari", "sementara", "sambil nunggu", "background", "paralel"]):
+            if "makalah" in p or "document" in p or "dokumen" in p:
+                issues.append("planned_parallel_unrequested_task_with_new_document")
         if "background" in p and "raw" not in p and "log" not in p:
             issues.append("background_claim_without_raw_log_plan")
 
