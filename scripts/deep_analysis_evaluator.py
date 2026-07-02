@@ -3,7 +3,7 @@
 
 Token-efficient design:
   - jarvis-agent (cheap) writes the analysis
-  - Opus 4.8 (expensive, called ONCE) evaluates quality
+  - jarvis-reason (expensive, called ONCE) evaluates quality
   - JSON deterministik memutuskan: PASS or NEEDS_REVISION
 
 Evaluates against 6 criteria:
@@ -23,15 +23,14 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
+import re
 import sys
 import time
 
 _GUARDIAN_URL = "http://localhost:20129/v1/chat/completions"
-_VENV_PY = os.path.expanduser("~/.hermes/hermes-agent/venv/bin/python")
 
 EVAL_PROMPT = """Evaluate this deep analysis output against QUALITY criteria.
-Return ONLY valid JSON with this structure:
+Return ONLY valid JSON (no markdown, no explanation).
 
 {
   "verdict": "PASS" or "NEEDS_REVISION",
@@ -42,10 +41,13 @@ Return ONLY valid JSON with this structure:
   "contradictions_exposed": true/false,
   "actionable_recommendations": true/false,
   "overall_quality": 0-100,
-  "strengths": ["..."],
-  "weaknesses": ["..."],
-  "fix_suggestions": ["..."]
+  "strengths": ["short strength 1", "short strength 2"],
+  "weaknesses": ["short weakness 1", "short weakness 2"],
+  "fix_suggestions": ["short fix 1"]
 }
+
+Keep strengths/weaknesses/fix_suggestions BRIEF (under 80 chars each).
+Do NOT include line breaks inside the JSON string values.
 
 ANALYSIS TO EVALUATE:
 """
@@ -55,12 +57,12 @@ def evaluate(analysis_text: str, timeout: int = 120) -> dict:
     """Call jarvis-reason to evaluate analysis quality."""
     import urllib.request
 
-    prompt = EVAL_PROMPT + analysis_text[:8000]
+    prompt = EVAL_PROMPT + analysis_text[:6000]
 
     payload = json.dumps({
         "model": "jarvis-reason",
         "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 800,
+        "max_tokens": 1500,
         "temperature": 0.1,
     }).encode("utf-8")
 
@@ -84,38 +86,75 @@ def evaluate(analysis_text: str, timeout: int = 120) -> dict:
             "overall_quality": 0,
         }
 
-    # Parse JSON from response (may be wrapped in markdown fences)
-    content = content.strip()
-    if content.startswith("```"):
-        content = content.split("\n", 1)[-1]
-        if content.endswith("```"):
-            content = content[:-3]
-    if content.startswith("json"):
-        content = content[4:]
-    content = content.strip()
-
+    # Parse JSON from response — try multiple strategies
+    cleaned = content.strip()
+    
+    # Strategy 1: Raw parse
     try:
-        verdict = json.loads(content)
+        verdict = json.loads(cleaned)
+        if isinstance(verdict, dict) and "verdict" in verdict:
+            verdict["model_used"] = model_used
+            verdict["evaluated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+            return verdict
     except json.JSONDecodeError:
-        # Fallback: extract the JSON object
-        import re
-        match = re.search(r"\{[^}]+\}", content, re.DOTALL)
-        if match:
-            try:
-                verdict = json.loads(match.group(0))
-            except json.JSONDecodeError:
-                verdict = {"verdict": "JSON_PARSE_ERROR", "raw": content[:200]}
-        else:
-            verdict = {"verdict": "JSON_NOT_FOUND", "raw": content[:200]}
+        pass
 
-    verdict["model_used"] = model_used
-    verdict["evaluated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
-    return verdict
+    # Strategy 2: Strip markdown fences
+    if cleaned.startswith("```"):
+        parts = cleaned.split("\n", 1)
+        if len(parts) > 1:
+            cleaned = parts[1]
+            if cleaned.endswith("```"):
+                cleaned = cleaned[:-3]
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+            cleaned = cleaned.strip()
+    try:
+        verdict = json.loads(cleaned)
+        if isinstance(verdict, dict) and "verdict" in verdict:
+            verdict["model_used"] = model_used
+            verdict["evaluated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+            return verdict
+    except json.JSONDecodeError:
+        pass
+
+    # Strategy 3: Extract JSON object with regex
+    match = re.search(r"\{[^{}]*\}", cleaned, re.DOTALL)
+    if match:
+        try:
+            verdict = json.loads(match.group(0))
+            if isinstance(verdict, dict):
+                verdict["model_used"] = model_used
+                verdict["evaluated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+                return verdict
+        except json.JSONDecodeError:
+            pass
+
+    # Strategy 4: Deep regex for nested JSON
+    match = re.search(r"\{(?:[^{}]|\{[^{}]*\})*\}", cleaned, re.DOTALL)
+    if match:
+        try:
+            verdict = json.loads(match.group(0))
+            if isinstance(verdict, dict):
+                verdict["model_used"] = model_used
+                verdict["evaluated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+                return verdict
+        except json.JSONDecodeError:
+            pass
+
+    # Final fallback
+    return {
+        "verdict": "JSON_PARSE_ERROR",
+        "model_used": model_used,
+        "raw": cleaned[:300],
+        "evaluated_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "overall_quality": 0,
+    }
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(
-        description="Deep Analysis Quality Evaluator — Opus 4.8 as final arbiter"
+        description="Deep Analysis Quality Evaluator — jarvis-reason as final arbiter"
     )
     ap.add_argument("--file", help="File containing analysis text")
     ap.add_argument("--text", help="Analysis text directly")
@@ -135,11 +174,11 @@ def main() -> int:
     else:
         text = sys.stdin.read().strip()
 
-    if not text:
-        print("ERROR: No analysis text provided")
+    if not text or len(text) < 100:
+        print("ERROR: Analysis text too short (< 100 chars). Save full output first.")
         return 2
 
-    print("Evaluating deep analysis quality via jarvis-reason...", file=sys.stderr)
+    print(f"Evaluating {len(text)} chars via jarvis-reason...", file=sys.stderr)
     verdict = evaluate(text, timeout=args.timeout)
 
     if args.json:
@@ -148,16 +187,14 @@ def main() -> int:
         print(f"Verdict: {verdict.get('verdict', 'UNKNOWN')}")
         print(f"Model: {verdict.get('model_used', 'unknown')}")
         print(f"Quality: {verdict.get('overall_quality', '?')}/100")
-        print(f"NEURO-ARC: {verdict.get('neuro_arc_present', '?')}")
-        print(f"Multi-perspective: {verdict.get('multi_perspective_min_3', '?')}")
-        print(f"Anti-halu labels: {verdict.get('anti_halu_labels_used', '?')}")
-        print(f"Context-specific: {verdict.get('specific_to_context', '?')}")
-        if verdict.get("strengths"):
-            print(f"Strengths: {', '.join(verdict['strengths'][:3])}")
-        if verdict.get("weaknesses"):
-            print(f"Weaknesses: {', '.join(verdict['weaknesses'][:3])}")
-        if verdict.get("fix_suggestions"):
-            print(f"Fix suggestions: {', '.join(verdict['fix_suggestions'][:3])}")
+        for key in ["neuro_arc_present", "multi_perspective_min_3",
+                     "anti_halu_labels_used", "specific_to_context",
+                     "contradictions_exposed", "actionable_recommendations"]:
+            print(f"  {key}: {verdict.get(key, '?')}")
+        for key in ["strengths", "weaknesses", "fix_suggestions"]:
+            vals = verdict.get(key, [])
+            if vals:
+                print(f"{key.capitalize()}: {', '.join(vals[:3])}")
 
     return 0 if verdict.get("verdict") == "PASS" else 1
 
