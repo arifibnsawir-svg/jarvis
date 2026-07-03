@@ -53,7 +53,7 @@ def _find_constraint(constraint_name: Optional[str] = None) -> Optional[str]:
 
 
 def run(artifact_path: str, constraint_name: Optional[str] = None,
-        timeout_seconds: int = 420) -> dict:
+        timeout_seconds: int = 420, disable_page_topup: bool = False) -> dict:
     """Panggil PIPA4 council untuk satu artifact.
 
     Return dict dgn keys: triggered, verdict, final_status, false_ready_count,
@@ -96,9 +96,12 @@ def run(artifact_path: str, constraint_name: Optional[str] = None,
         }
 
     try:
+        _env = os.environ.copy()
+        if disable_page_topup:
+            _env["DISABLE_PAGE_TOPUP"] = "1"
         proc = subprocess.run(
             ["bash", gate_sh, artifact_path, constraint],
-            capture_output=True, text=True, timeout=timeout_seconds,
+            capture_output=True, text=True, timeout=timeout_seconds, env=_env,
         )
         exit_code = proc.returncode
         combined = (proc.stdout + "\n" + proc.stderr)[-500:]
