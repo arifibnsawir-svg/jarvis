@@ -69,6 +69,16 @@ def _classify_single(cmd, context="default"):
     paths = extract_paths(c)
     words = low.split()
     first = words[0] if words else ""
+    _redir = ">" in c
+    _multi = "\n" in c
+    _NEUTRAL = {"cd","pushd","popd","export","set","unset","alias","true","false",":","test","["}
+    _DATA = {"echo","printf","grep","egrep","fgrep","rg"}
+    if first in _NEUTRAL and not _redir and not _multi:
+        return V("AUTO_OK", f"Netral/no-op ({first}).")
+    if first in _DATA and not _redir and not _multi:
+        return V("AUTO_OK", f"Data/tampilan ({first}) -- arg bukan eksekusi.")
+    if first == "sed" and not re.search(r"(^|\s)-i\b", low) and not _redir and not _multi:
+        return V("AUTO_OK", "sed read-only (tanpa -i).")
 
     # 0. Tamper mekanisme keamanan -> REFUSE
     if re.search(r'\b(rm|mv|truncate)\b', low) and any(sm.lower() in low for sm in R["safety_mechanisms"]):
@@ -148,6 +158,11 @@ def _classify_single(cmd, context="default"):
             return V("AUTO_OK_W_BACKUP", "Modifikasi file non-protected di luar safe-zone.", ["backup"])
         return V("AUTO_OK_W_BACKUP", "Tulis/modifikasi (target tak jelas) -> backup dulu.", ["backup"])
 
+    _INTERP = {"python","python3","node","bash","sh","ruby","perl"}
+    if (first in _INTERP or first.startswith("./") or first.startswith("/")) and not _multi:
+        if re.search(r"(^|\s)-(c|e|-eval)\b", low):
+            return V("NEEDS_APPROVAL", "Interpreter inline code (-c/-e).")
+        return V("AUTO_OK_W_BACKUP", "Jalanin script file -> allow+backup.", ["backup"])
     # 9. default konservatif
     return V("NEEDS_APPROVAL", "Aksi tak dikenali -> default konservatif (escalate ke Arif).")
 
@@ -183,6 +198,19 @@ def classify_command(cmd, context="default"):
     - Selain itu: pecah top-level, klasifikasi tiap segmen, verdict PALING KETAT yang menang.
       Nutup prefix-masking spt 'echo x && ./run.sh' (dulu AUTO_OK krn prefix echo) dan
       'cat f | tee ~/.hermes/config.yaml' (dulu lolos sbg read)."""
+    # --- HEREDOC FIX: heredoc NON-interpreter (cat/tee/...) -> body = DATA
+    # (ditulis/stdin), BUKAN kode. Scan header doang biar redirect-target ke
+    # protected-path tetep kena, tapi teks body gak bikin REFUSE palsu.
+    # Interpreter (bash/sh/python <<EOF) -> body = KODE -> discan utuh.
+    if cmd and "<<" in cmd:
+        _IH = {"bash","sh","zsh","ksh","dash","python","python3","python2",
+               "perl","ruby","node","php","ssh","sudo","env","eval","xargs"}
+        _tok = cmd.strip().split()
+        _first = _tok[0].lower() if _tok else ""
+        _base = _first.rsplit("/", 1)[-1]
+        _isinterp = (_base in _IH) or _first.startswith("./")
+        if not _isinterp:
+            cmd = cmd.split("\n", 1)[0]
     if cmd and "<<" not in cmd:
         segs = _split_top_level(cmd)
         if len(segs) > 1:
@@ -210,6 +238,7 @@ READ_TOOLS = {
     "mcp_filesystem_read_file", "mcp_filesystem_read_text_file", "mcp_filesystem_read_multiple_files",
     "mcp_filesystem_list_directory", "mcp_filesystem_list_directory_with_sizes",
     "mcp_filesystem_directory_tree", "mcp_filesystem_get_file_info", "mcp_filesystem_search_files",
+  "skill_view", "view_skill",
 }
 
 def classify_tool(function_name, args):
@@ -258,7 +287,11 @@ def to_unified(decision, decision_mode="shadow", tool=None, command=None):
     if decision_mode in ("shadow", "mock"):
         allow = True                      # observe only -- gak pernah blokir
     else:                                  # live/enforce
-        allow = v in ("AUTO_OK", "AUTO_OK_W_BACKUP")
+        _enforce = os.environ.get("ACTION_GATE_ENFORCE", "refuse_only").lower()
+        if _enforce == "full":
+            allow = v in ("AUTO_OK", "AUTO_OK_W_BACKUP")
+        else:  # Fase 1 refuse_only: cuma REFUSE diblok, NEEDS_APPROVAL lolos
+            allow = v != "REFUSE"
     return {
         "timestamp": datetime.datetime.now().isoformat(),
         "gate_version": "v1_action",
