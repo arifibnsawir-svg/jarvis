@@ -672,3 +672,23 @@ File hasil (Drive "Hasil jarvis"): sidang_gaya_belajar_prestasi.pdf (144KB, 15 h
 - ROLLBACK: cp USER.md.bak.<ts> USER.md ; rm -f ~/.hermes/scripts/pipa4_gate.sh.
 - HASIL: loop "produksi -> PIPA4 gate -> iterasi -> deliver" KETUTUP utk final akademik. PIPA1-3 tetap soft (by design). Auto-gate semua artefak SENGAJA TIDAK dibikin (over-engineering, PIPA4 berat).
 - MERGE ORDER saran: #3 -> #4 -> #5 -> #6 -> PR ini. Hindari konflik append checkpoint.
+
+
+## HANDOFF — SOCIAL AUTOPILOT / LEARNING LOOP — 13 JULI 2026
+
+- Checkpoint: docs/checkpoints/social-autopilot-2026-07-13.md
+- Current verdict:
+  RECONCILIATION_SETUP_PHASE_1_TO_4_COMPLETE_AWAITING_TEST_EXECUTION
+- R06:
+  CLEAN RED→GREEN PROVEN, NOT PROMOTED
+- Runtime:
+  Humanizer canary rolled back; no production canary active
+- Resume:
+  Start Phase 5, do not repeat Phase 1–4
+- Hard stop:
+  no posting, no promote, no duplicate cron/scraper, no memory edits
+- Evidence paths:
+  - Checkpoint SHA: 1c2f871cdb9e666cc387e7f1f8200c9d5fd91aff4279bb5b8f128068dc0e3df4
+  - Resume SHA: 12d0766698b97b3410e090418bb473d40148b62869e59953cb77ced29ad4fee6
+- Next owner action:
+  verify hashes → author 12 tests → lock → run → report
