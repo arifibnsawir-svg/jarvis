@@ -692,3 +692,21 @@ File hasil (Drive "Hasil jarvis"): sidang_gaya_belajar_prestasi.pdf (144KB, 15 h
   - Resume SHA: 12d0766698b97b3410e090418bb473d40148b62869e59953cb77ced29ad4fee6
 - Next owner action:
   verify hashes → author 12 tests → lock → run → report
+
+---
+
+## HANDOFF — R09 P3-V4B SHADOW PROMOTION EVIDENCE — 18 JULI 2026
+
+- Milestone: R09 P3-V4B Shadow Promotion Evidence Checkpoint Closed
+- Artifact: R09_P3_V4B_EVIDENCE_CORRECTED.zip (238954 B, SHA 6586efa)
+- Candidate SHA: 4ca71 (shadow-only, NOT promoted)
+- Baseline/real sandbox: 79c7a (unchanged)
+- Rejected predecessor: 1ede9
+- Manifest verification: source 3/3, test 11/11, lineage 8/8, bundle 43/43 — ALL PASS
+- Telegram delivery: message ID 20257, 2026-07-18 20:50:57 WIB
+- Evidence limitation: P3_CORE_PASS_TRANSCRIPT_WITHOUT_EMBEDDED_4CA_IDENTITY
+- Safety: no scheduler/cron/config/p4/posting/promotion action
+- Checkpoint file: state/CHECKPOINT_20260718_R09_P3_V4B.md
+- Next technical target: Action-Gate v2 approval flow — NEEDS_APPROVAL fail-closed
+- **ACTION-GATE APPROVAL FLOW NOT STARTED YET**
+- **REAL-SANDBOX PROMOTION NOT AUTHORIZED**
