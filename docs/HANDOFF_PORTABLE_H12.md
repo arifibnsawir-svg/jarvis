@@ -507,3 +507,29 @@ verifikasi.
 Gerbang 2 adalah satu-satunya yang MERAH, dan gerbang itulah yang menahan
 go-live. Perlu dipahami dengan tepat: Gate 2 menahan PROMOSI kandidat baru,
 bukan PEMAKAIAN apa yang sudah hidup sekarang.
+
+## 11. Registry blocker per 29 Jul 2026
+
+### P0
+- GIT-TOKEN-IN-ARCHIVES. Berkas backup memasukkan direktori workspaces
+  sehingga token ikut terbungkus di dalam arsip. TERBUKTI. Statusnya
+  RISIKO DITERIMA atas keputusan Arif pada 29 Jul 2026.
+- BACKUP-NO-OFFSITE. MERAH dan diparkir atas keputusan Arif. Penyebab
+  tercetak jelas pada log: skipped_remote_large_archive_2855MB, karena
+  arsip melampaui ambang ARCHIVE_MB 250.
+
+### P1
+- GATE-NEVER-ENFORCED dan GATE-FAIL-OPEN. Lihat bagian 9.
+- CRON-CANNOT-APPROVE. Cron tidak dapat meminta persetujuan.
+- SUMMARIZER-HARD-STOPPED. TERBUKTI. Guardian memblokir setiap permintaan
+  ringkasan karena prompt mengandung frasa yang dianggap kritis keamanan.
+  Perbaikan hanya boleh menyentuh guardian_router.py, dan menghidupkan
+  kembali combo DailyFree BUKAN pilihan.
+- RECON-DEAD. Lihat bagian 4.6.
+- STAGE-3-POSTING-ZERO dan STAGE-4-REPLY-ZERO.
+- ROUTER-BOUND-PUBLIC. Port 20128 terikat pada 0.0.0.0. Jangan mengubah
+  HOSTNAME sebelum ada prosedur yang disetujui.
+- HERMETIC-RUN-CONTAMINATED. Uji hermetik 26 Jul tercemar lalu lintas hidup.
+- BACKUP-NO-CHECKSUM. Turun menjadi kuning. Hanya 4 checksum untuk sekitar
+  30 arsip, tetapi arsip baru kini selalu mendapat checksum sehingga
+  membaik sendiri.
