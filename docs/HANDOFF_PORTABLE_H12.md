@@ -586,3 +586,59 @@ berbasis model termasuk menyatakan sebuah alarm sebagai alarm palsu.
 Log gateway berada pada ~/.hermes/logs/9router-direct.log, berukuran
 sekitar 72 MB, tidak pernah dirotasi, dan hanya memuat cap jam tanpa
 tanggal. Jangan mencari dengan pola tanggal, gunakan rentang baris.
+
+## 13. Aturan milestone ke repo
+
+Sesuatu disebut milestone bila mengubah keadaan yang harus diketahui orang
+lain. Hanya tiga jenis: sebuah gerbang berubah warna, sebuah blocker lahir
+atau berubah kelas atau ditutup, dan sebuah keputusan dikunci oleh Arif.
+
+Bukan milestone: laporan kemajuan, investigasi yang belum menyimpulkan, dan
+patch yang belum di-ACC.
+
+Aturan intinya satu kalimat: MILESTONE BELUM TERJADI SAMPAI DIA ADA DI REPO.
+Bila hanya ada di Notion atau Telegram, statusnya belum terjadi.
+
+Formatnya satu baris pada docs/MILESTONE_LEDGER.md:
+YYYY-MM-DD HH:MM WIB | JENIS | ISI | BUKTI
+JENIS hanya GATE, BLOCKER, atau KEPUTUSAN. BUKTI wajib berupa sha256 atau
+hash commit dan tidak boleh kosong. Berkas ini append-only. Koreksi ditulis
+sebagai baris baru, tidak pernah mengubah baris lama.
+
+Pembagian kerja: Jarvis menulis, Arif menempelkan, auditor memverifikasi
+secara read-only. Auditor tidak memiliki akses tulis ke repo, dan itu
+disengaja. Bila auditor bisa menulis, ia akan memverifikasi tulisannya
+sendiri dan kata terverifikasi kehilangan artinya.
+
+## 14. Integritas dan riwayat koreksi
+
+Auditor telah menarik kembali sejumlah kesimpulannya sendiri sepanjang
+pekerjaan ini. Hal itu sengaja dicatat, bukan disembunyikan.
+
+Yang paling penting diketahui pembaca baru:
+- Gate 2 pernah keliru disebut hanya memilih skill. Itu Gate 1. Dikoreksi
+  setelah Arif menegur.
+- Urutan menghentikan layanan pernah keliru ditulis Guardian lebih dulu.
+  Yang benar Gateway lebih dulu, dan pemulihan sebaliknya.
+- Klaim bahwa Stage 4 belum punya spesifikasi keliru. Spesifikasinya ada
+  sejak 7 Jul 2026.
+- Klaim bahwa harness terisolasi belum dibangun keliru. Harness itu ada.
+- Angka 225 dari 225 sempat disajikan sebagai bukti terkini. Itu dilarang.
+- Dugaan bahwa 8 cron hilang keliru. Keluaran CLI hanya tersaring.
+
+Pelajaran yang berlaku bagi siapa pun yang melanjutkan: kesalahan paling
+sering lahir dari instrumen yang salah dibaca, bukan dari data yang salah.
+
+## 15. Langkah berikutnya
+
+1. Jalankan ulang Gate 2 secara bersih dengan runner yang sudah diperbaiki,
+   satu kali jalan, bukan tiga.
+2. Buktikan orphan pada content gate melalui Workstream A.
+3. Perbaiki jalur persetujuan cron, jadikan gate fail-closed, lalu canary
+   dengan kontrol positif.
+4. Pulihkan recon setelah memperbaiki tujuan pengiriman.
+5. Tulis kode poster Stage 3 hanya setelah tiga langkah pertama selesai.
+
+Tidak ada state yang boleh maju tanpa ACCEPT eksplisit dari Arif.
+
+Dokumen ini berakhir di sini.
