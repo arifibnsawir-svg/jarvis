@@ -178,3 +178,84 @@ dan bukti rollback yang dapat diulang.
 Ingatan Jarvis BUKAN sumber. Prinsip ini sudah punya wujud teknis berupa
 state/task_state.py dengan pola blackboard, yang menyatakan bahwa kebenaran
 hidup di struktur data, bukan di ingatan model.
+
+## 4. Lapis 1: Recon Engine, 70 persen
+
+### 4.1 Yang sudah terbukti berjalan
+
+Ekstraksi jumlah follower memakai dua sumber sekaligus. Sumber primer
+adalah JSON Relay pada jalur .__bbox.result.data.user.follower_count yang
+memberi angka bulat eksak. Sumber pembanding adalah og:description dengan
+toleransi pembulatan K, M, dan B. Bila keduanya berbeda di luar toleransi,
+hasilnya di-FLAG dan TIDAK ditulis ke CSV.
+
+Prinsipnya: lebih baik kosong daripada salah.
+
+Pada 19 Jul 2026 seluruh rantai ini berjalan penuh. Enam target ter-scrape,
+semuanya MATCH, dan laporan harian terkirim dengan angka asli. Akun Arif
+tercatat 2 follower, dan angka itu hasil scrape sungguhan yang terverifikasi
+dua sumber, bukan data contoh.
+
+OCR sebagai jalur cadangan berstatus TERKUNCI dan tidak dipakai.
+
+### 4.2 Watchlist
+
+Seed penelitian mencatat 31 akun, terbagi menjadi Tier 1 sebanyak 22 akun,
+Tier 2 sebanyak 6 akun, dan Tier 3 sebanyak 3 akun.
+
+Watchlist operasional yang terkunci berisi 8 akun: productivityboi,
+tommyteja, argitendo, rubyabdullah.ai, dimasyoga.pw, Raymond Chin,
+Fellexandro Ruby, dan RevoU. Aturan tertulis pada watchlist ini adalah
+JANGAN auto-reply.
+
+Angka pembanding yang tercatat: hanifmuh_ 165991, lifeastechbro 128952,
+tommyteja 118969, productivityboi 94048, dimasyoga.pw 65839, dan arifb.id 2.
+
+Satu-satunya data irama posting yang pernah terukur adalah hanifmuh_ yang
+kira-kira harian. Semua angka volume lain masih perkiraan.
+
+### 4.3 Tiga modul
+
+Modul A melakukan rotasi seed mingguan, mengambil 3 post per akun.
+Modul B melakukan penemuan dinamis dengan penilaian tujuh dimensi, dan
+mempromosikan akun secara otomatis setelah muncul 3 kali.
+Modul C menambang register bahasa untuk disalurkan ke Humanizer.
+
+Keluarannya berupa Hook Bank, amunisi balasan, dan digest mingguan.
+
+### 4.4 Lima aturan anti-peniru
+
+Aturan yang paling sering dilanggar adalah aturan 48 jam, yaitu dilarang
+membahas sudut yang sama dengan kompetitor dalam 48 jam. Selain itu berlaku
+uji pembeda dan uji Google lima menit, yaitu bila jawabannya bisa ditemukan
+lewat pencarian lima menit maka konten itu tidak layak terbit.
+
+### 4.5 Cara menjalankan
+
+Virtual environment berada di ~/.hermes/recon-venv dengan Python 3.12.3.
+
+cd /home/arif/.hermes/skills/devops/modular-competitive-monitoring
+~/.hermes/recon-venv/bin/python3 scripts/run_monitoring.py \
+  .../templates/monitoring-config-arif-competitors.yaml
+
+### 4.6 Kenapa sekarang mati, dan apa yang harus diperbaiki lebih dulu
+
+Blocker bernama RECON-DEAD. Tidak ada data masuk sejak 19 Jul 2026.
+
+Dua cron yang bersangkutan berstatus paused, yaitu 179b39bf2020 bernama
+competitor-recon-daily dan 647df6288f79 bernama daily-report. Keduanya
+terakhir berjalan 26 Jul 2026 lalu berhenti serentak bersama enam job lain,
+dan penghentian itu BUKAN dilakukan Arif.
+
+Ada satu job lain bernama competitor_daily_monitor dengan id 8cacea44ccee
+yang mati lebih awal, yaitu sejak 8 Jul 2026. Penyebabnya berbeda: tujuan
+pengirimannya adalah whatsapp:arif budiman, dan platform itu tidak
+terkonfigurasi. Barisnya sendiri berbunyi
+delivery failed: platform 'whatsapp' not configured/enabled.
+
+Konsekuensi praktis: menghidupkan kembali cron saja TIDAK cukup. Tujuan
+pengiriman harus diperbaiki lebih dulu, jika tidak hasilnya akan jatuh ke
+tujuan yang tidak ada.
+
+Pemulihan wajib memakai perintah absolut yang deterministik, bukan prompt
+kepada agent.
