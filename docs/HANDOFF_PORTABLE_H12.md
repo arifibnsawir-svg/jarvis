@@ -642,3 +642,31 @@ sering lahir dari instrumen yang salah dibaca, bukan dari data yang salah.
 Tidak ada state yang boleh maju tanpa ACCEPT eksplisit dari Arif.
 
 Dokumen ini berakhir di sini.
+
+## 16. Koreksi terukur 29 Jul 2026 sore
+
+Semua butir di bawah menggantikan pernyataan sebelumnya di dokumen ini.
+
+16.1 Direktori state berisi 16 berkas, dengan 4 sudah terlacak git dan 12
+untracked. Pernyataan bahwa semuanya untracked di bagian 11 keliru.
+
+16.2 Branch master TIDAK ADA di repo ini. Commit 684b7234 berada di repo
+workspace yang berbeda. Instruksi mendorong commit itu atau menyinkronkan
+master dari repo ini tidak berlaku.
+
+16.3 Gate punya TIGA jalan keluar yang meloloskan, bukan satu. Baris 105
+meloloskan langsung ketika decision_mode bernilai off. Baris 113 meloloskan
+ketika klasifikasi melempar galat. Baris berikutnya meloloskan ketika mode
+bernilai shadow atau mock. Menjadikan baris 113 fail-closed saja TIDAK
+CUKUP. Ketiganya harus ditangani.
+
+16.4 Lapis 3 dan Lapis 4 memiliki dua angka yang berbeda artinya. Dari sisi
+kode, keduanya NOL, tidak ada berkas poster maupun reply. Angka 25 dan 10
+menggambarkan kesiapan berupa spesifikasi tertulis dan perkakas browser
+yang sudah terpasang. Jangan membaca 25 sebagai ada kode yang bisa jalan.
+
+16.5 Gate yang tersimpan di HEAD repo masih versi pra-A3, sha 2333f34f
+dengan ukuran 2577 byte, sedangkan yang berjalan di host adalah sha
+e0e30004 dengan ukuran 5772 byte. Artinya repo saat ini TIDAK dapat
+mereproduksi sistem yang hidup. Blocker A2-BRIDGE-UNCOMMITTED dinaikkan
+dari P2 menjadi P1.
