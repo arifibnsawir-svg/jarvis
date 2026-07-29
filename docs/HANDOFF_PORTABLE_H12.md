@@ -533,3 +533,25 @@ bukan PEMAKAIAN apa yang sudah hidup sekarang.
 - BACKUP-NO-CHECKSUM. Turun menjadi kuning. Hanya 4 checksum untuk sekitar
   30 arsip, tetapi arsip baru kini selalu mendapat checksum sehingga
   membaik sendiri.
+
+### P2
+- Gate 2 MERAH.
+- QUIESCE-NO-ROLLBACK, A2-BRIDGE-UNCOMMITTED, GATE-DUAL-COPY-DRIFT,
+  FIXTURE-SPRAWL, ORPHAN-FIXTURE-UNKNOWN, EVIDENCE-NOT-BACKED-UP,
+  TYPING-LEAK-UNPATCHED.
+
+### Ditutup
+- SECRETS-WORLD-READABLE.
+- BACKUP-RETENTION-DEAD, ditutup 29 Jul 2026. Retensi 30 aktif dan arsip
+  turun 31 GB, cocok dengan penurunan pemakaian disk.
+- BACKUP-SILENT-FAIL, ditutup 29 Jul 2026 dengan status keluar 0.
+- Kebocoran kredensial pada direktori state, pencarian pola PAT hasil nol.
+- Lokasi artefak Stage 4E, jalur Guardian, dan port gateway.
+- CRON-REGISTRY-LOSS, terbantahkan. Registry utuh berisi 11 job.
+
+### Catatan risiko
+Direktori state pada repo berisi 16 berkas berukuran total 71380 byte,
+termasuk seluruh riwayat Humanizer H2 sampai H11 dan kode inti NEURO-ARC.
+Semuanya untracked sehingga tidak ikut terbit. Namun backup harian hanya
+mengarsipkan ~/.hermes, sedangkan repo berada di luar cakupan itu.
+Akibatnya berkas tersebut saat ini hanya ada pada satu mesin.
