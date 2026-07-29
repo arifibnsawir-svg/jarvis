@@ -424,3 +424,86 @@ Konsekuensi yang harus dipahami: seluruh angka di atas berasal dari data
 uji, bukan data lapangan. Learning loop tidak dapat naik dari 15 persen
 sampai ada post organik nyata yang bisa dipelajari. Urutannya tidak bisa
 dibalik.
+
+## 9. Lapis 6: Governance, 57 persen
+
+### 9.1 Lubang utama: gate menghitung benar, tetapi tidak menahan
+
+Ini temuan terpenting pada lapis governance, dan sudah TERBUKTI dari skema
+data, bukan dari laporan.
+
+Pada berkas keputusan action_gate/decisions.jsonl terdapat entri dengan
+tool bernama cronjob, verdict NEEDS_APPROVAL, action_class IMPACT_HEAVY,
+dan alasan "ubah cron/scheduler". Pada entri yang sama tertulis
+requires_approval bernilai true dan would_block bernilai true, TETAPI
+allow_execution juga bernilai true.
+
+Artinya sistem tahu tindakan itu seharusnya ditahan, mencatatnya dengan
+benar, lalu tetap membiarkannya berjalan.
+
+Penyebabnya adalah mode penegakan. ACTION_GATE_MODE bernilai live, tetapi
+ACTION_GATE_ENFORCE bernilai refuse_only. Selain itu gate_hook.py bersifat
+fail-open pada baris 113 yang mengembalikan nilai izin ketika terjadi
+kesalahan.
+
+Blocker: GATE-NEVER-ENFORCED dan GATE-FAIL-OPEN.
+
+### 9.2 Urutan memperbaikinya, jangan dibalik
+
+1. Perbaiki jalur persetujuan untuk cron, karena cron saat ini tidak dapat
+   meminta persetujuan sama sekali. Blocker CRON-CANNOT-APPROVE.
+2. Ubah gate_hook.py baris 111 dan 113 menjadi fail-closed.
+3. Jalankan canary dengan kontrol positif, yaitu satu tindakan yang memang
+   HARUS ditolak, untuk membuktikan penolakan benar terjadi.
+4. Baru setelah ketiganya lolos, ubah ACTION_GATE_ENFORCE menjadi full.
+
+Dilarang menyasar decision_mode sebagai jalan pintas. Yang salah bukan mode
+keputusan, melainkan penegakannya.
+
+### 9.3 Batas kepercayaan pada bukti lama
+
+Angka 225 dari 225 untuk Action-Gate v2 TIDAK BOLEH disajikan sebagai bukti
+terkini. Rinciannya adalah core approval 203 dari 203 dan plugin hooks 3
+dari 3, dan lineage keduanya sudah dinyatakan tidak dapat dipulihkan.
+
+Pemeriksaan pada 29 Jul 2026 memperkuat hal ini. Berkas bernama
+INTEGRATION_MAP_20260718_ACTIONGATE_V2_CORE_APPROVAL.md ternyata berisi peta
+komponen mode read-only, bukan catatan hasil uji. Pencarian angka 203 di
+dalamnya menghasilkan nol.
+
+Yang masih sah sebagai bukti segar hanyalah bridge 19 dari 19.
+
+Status resmi A4: OPERATIONALLY ACCEPTED dengan catatan HISTORICAL
+CORE/PLUGIN LINEAGE GAP. Penegakan sudah dikembalikan ke refuse_only.
+
+### 9.4 Gerbang lain yang sudah ada
+
+Deep Analysis Gate berstatus HARD-enforced dengan tanda terima dan ledger
+berbasis HMAC-SHA256 beserta verifikatornya.
+
+PIPA4 bersifat fail-closed dengan batasan doc_type yang dinamis, dan
+memakai pola isolasi per proses jalan.
+
+## 10. Kontrak go-live: tujuh gerbang
+
+Dikunci pada Master Plan tertanggal 24 Jul 2026.
+
+| Gerbang | Isi | Status |
+|---|---|---|
+| 1 | Winner sah dan hijau | HIJAU |
+| 2 | Regresi penuh tanpa cacat | MERAH |
+| 3 | Promosi reversibel dan latihan rollback | HIJAU BERSYARAT |
+| 4 | Nol sentuhan pada ~/.hermes/skills/** | HIJAU |
+| 5 | Canary | BELUM DIJALANKAN |
+| 6 | Tidak ada yang rusak | SEBAGIAN |
+| 7 | Token dan IP tidak berubah | HIJAU |
+
+Catatan pada gerbang 3: keadaan akhir runtime bersifat self-attested. Yang
+benar-benar dihitung ulang hanyalah berkas di dalam arsip. Eksekusi promote
+dan rollback yang sesungguhnya di dalam ~/.hermes tidak pernah dapat
+diperiksa dari luar host. Bukti pendukungnya kuat, tetapi itu bukan
+verifikasi.
+
+Gerbang 2 adalah satu-satunya yang MERAH, dan gerbang itulah yang menahan
+go-live. Perlu dipahami dengan tepat: Gate 2 menahan PROMOSI kandidat baru,
+bukan PEMAKAIAN apa yang sudah hidup sekarang.
