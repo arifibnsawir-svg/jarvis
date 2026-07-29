@@ -115,3 +115,66 @@ tanpa pemeriksaan terpisah.
 - Laporan wajib bahasa Indonesia. Output mentah tidak diterjemahkan.
 - Bila sebuah langkah gagal, berhenti dan laporkan apa adanya.
   Dilarang memperbaiki sendiri atau melanjutkan ke langkah berikutnya.
+
+## 3. Arsitektur: enam lapis, bukan empat
+
+Master Plan menyebut empat stage. Itu benar untuk loop konten, tetapi tidak
+lengkap sebagai peta sistem. Ada dua lapis lain yang nyata, punya kode, dan
+punya penghambatnya sendiri.
+
+| Lapis | Nama | Status per 29 Jul 2026 | Penghambat utama |
+|---|---|---|---|
+| 1 | Recon Engine | 70 persen | Cron di-pause, mesinnya sendiri pernah terbukti jalan penuh |
+| 2 | Content Pipeline dan Gate | 35 persen | Gate 2 merah, jembatan materi repo ke Jarvis belum ada |
+| 3 | Posting | 25 persen | Jalur B terpasang, kode poster nol |
+| 4 | Engagement dan Reply | 10 persen | Spesifikasi lengkap sejak 7 Jul, kode nol |
+| 5 | Learning Loop | 15 persen | DRAFT_NOT_CALIBRATED, evaluasi DISABLED |
+| 6 | Governance | 57 persen | Gate menghitung benar tetapi tidak menahan |
+
+Persentase di atas menggambarkan KEADAAN SEKARANG, bukan kemampuan tertinggi
+yang pernah dicapai. Lapis 1 pernah berjalan penuh pada 19 Jul 2026: enam
+target ter-scrape, semuanya MATCH, laporan harian terkirim dengan angka
+asli. Yang mati sekarang hanya penjadwalnya. Ini penting agar tidak ada yang
+membangun ulang sesuatu yang sudah jadi.
+
+### 3.1 Keputusan terkunci, jangan dibuka lagi
+
+- n8n TIDAK DIPAKAI. Dikunci 9 Jul 2026. Orkestrasi memakai Hermes native
+  berupa cron, webhook, dan kanban dispatch. n8n diparkir, tidak dihapus.
+- Tidak memakai Meta API. Jalur B berupa browser automation dan scraping
+  adalah jalur utama, sehingga tidak memerlukan App Review. Wajib pelan dan
+  memakai jeda yang natural seperti manusia.
+- Jalur A berupa API resmi hanya opsional menyusul bila volume membesar.
+- Skill lewat Composio atau Rube MCP DITOLAK karena jalannya lewat API resmi
+  dan App Review, sehingga menabrak keputusan Jalur B.
+- Dua skill Humanizer tetap terpisah dan tidak digabung, yaitu global
+  strict-safe dan creative overlay.
+- Winner Humanizer adalah Global atau Candidate A, dipilih Arif eksplisit
+  pada 24 Jul 2026.
+- Hanya dua combo: jarvis-agent dan jarvis-reason.
+- URL tidak perlu dipublikasikan di dalam konten.
+- Repo jarvis bersifat publik atas keputusan sadar Arif pada 29 Jul 2026,
+  konsekuensinya dipahami. Ini bukan blocker.
+
+### 3.2 Humanizer berjangkauan global
+
+Humanizer melekat pada SELURUH output Jarvis, bukan hanya konten media
+sosial. Cakupannya termasuk artefak, docfactory, tugas, laporan, deep
+analysis, dan output umum.
+
+Konsekuensinya keras: dilarang mempromosikan patch Humanizer yang hanya
+diuji pada konten Threads. Setiap perubahan wajib melewati workspace
+terisolasi dengan matriks kompatibilitas lintas kelas output, kontrol
+negatif anti-halusinasi, uji preservasi format, canary per kelas output,
+dan bukti rollback yang dapat diulang.
+
+### 3.3 Empat sumber materi yang sah
+
+1. Repo buku milik Arif, berisi naskah, framework, dan SOP kompetitor.
+2. Riset web dan tren.
+3. Data kompetitor hasil recon.
+4. Pengalaman nyata Arif yang terverifikasi.
+
+Ingatan Jarvis BUKAN sumber. Prinsip ini sudah punya wujud teknis berupa
+state/task_state.py dengan pola blackboard, yang menyatakan bahwa kebenaran
+hidup di struktur data, bukan di ingatan model.
