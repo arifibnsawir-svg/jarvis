@@ -351,3 +351,76 @@ lolos. Bila winner gagal, yang gugur adalah winner, bukan alatnya.
 Jembatan dari empat sumber materi ke Jarvis belum dibangun. Repo buku,
 hasil recon, dan riset tren belum tersambung otomatis ke langkah 4 pada
 rantai produksi. Inilah alasan utama lapis ini berhenti di 35 persen.
+
+## 6. Lapis 3: Posting, 25 persen
+
+Jalur yang dipakai adalah Jalur B, yaitu browser automation dan scraping.
+Bukan Meta API. Keputusan ini terkunci dan tidak perlu App Review.
+
+Yang sudah ada: spesifikasi Stage 3 tertulis lengkap, dan perkakas browser
+sudah terpasang di host.
+
+Yang belum ada: kode poster itu sendiri. Nol baris. Blocker bernama
+STAGE-3-POSTING-ZERO.
+
+Kode poster DILARANG ditulis sebelum jendela remediasi host selesai dan
+Arif memberi ACC. Alasannya sederhana: menulis kode posting saat gate belum
+menahan berarti membangun jalan keluar sebelum penjaganya bekerja.
+
+### 6.1 Pagar hari pertama posting
+
+- Dua puluh post pertama WAJIB disetujui manual satu per satu oleh Arif.
+- Harus tersedia kill switch satu perintah yang TIDAK me-restart gateway.
+  Restart gateway memakan sekitar 210 detik dan pernah menggantung.
+- NIHIL adalah keluaran sukses.
+- Plafon volume diambil dari data kompetitor terukur, bukan angka default.
+- Jumlah follower dilarang menjadi input keputusan konten.
+- Kartu provenance wajib diarsipkan SEBELUM publikasi, bukan sesudah.
+
+### 6.2 Tangga volume
+
+Minggu pertama 2 post per hari. Minggu kedua 3 sampai 4 post per hari.
+Minggu ketiga mengikuti median kompetitor.
+
+Tangga ini TERBLOKIR oleh RECON-DEAD, karena median kompetitor belum
+terukur. Satu-satunya data irama yang pernah ada adalah satu akun dengan
+irama kira-kira harian. Angka 3 sampai 10 post per hari yang sering
+disebut masih perkiraan, bukan hasil pengukuran.
+
+## 7. Lapis 4: Engagement dan Reply, 10 persen
+
+Spesifikasi Reply Engine versi 1 sudah ada sejak 7 Jul 2026 dan isinya
+lengkap. Yang nol adalah kodenya. Blocker bernama STAGE-4-REPLY-ZERO.
+
+Urutan yang dirancang: deteksi, susun draft, Humanizer yang tidak dapat
+dilewati, Reply Gate, outbox, persetujuan Arif secara batch, lalu eksekusi
+lewat browser agent dengan throttle.
+
+Triase mengenal enam jenis balasan. Pos 1 memakai ulang
+content_gate_rules.json. Pos 2 memakai juri jarvis-reason yang menilai
+anti-halusinasi, kesesuaian suara, larangan rage-bait, uji orang asing, dan
+kecocokan dengan tujuan. Verdict berupa OK, REVISE, atau REFUSE.
+
+Catatan penting: watchlist kompetitor bertanda JANGAN auto-reply. Reply
+engine tidak boleh menyasar delapan akun itu secara otomatis.
+
+## 8. Lapis 5: Learning Loop, 15 persen
+
+Status kalibrasi DRAFT_NOT_CALIBRATED dan evaluasi berstatus DISABLED.
+Loop ini belum pernah melihat data organik nyata, karena memang belum ada
+post organik.
+
+Yang sudah selesai adalah fase rekonsiliasi. Rekonsiliasi fase 5 sampai 8
+tuntas dengan 12 dari 12 lolos, 15 dari 15 terverifikasi, dan 99 dari 99
+lolos. R01 terkunci pada versi 3. R06 menyelesaikan 8 pengujian. R12
+menyelesaikan 17 dari 17 dan 99 dari 99.
+
+R09 berstatus RETIRED setelah sebelumnya menunggu ACC Arif.
+
+R14 mengenal empat status yaitu INSUFFICIENT_DATA, WATCH, WINNER_ELIGIBLE,
+dan QUARANTINE_ELIGIBLE.
+
+Konsekuensi yang harus dipahami: seluruh angka di atas berasal dari data
+uji, bukan data lapangan. Learning loop tidak dapat naik dari 15 persen
+sampai ada post organik nyata yang bisa dipelajari. Urutannya tidak bisa
+dibalik.
