@@ -51,3 +51,67 @@ Syarat 5 dan 6 paling mudah dilanggar diam-diam, dan keduanya pembeda utama
 Jarvis dari agent automation kebanyakan. Sistem yang mengejar follower akan
 selalu menemukan alasan untuk posting. Sistem yang boleh mengatakan NIHIL
 tidak.
+
+## 2. Peran, transport, dan aturan keras
+
+### 2.1 Siapa mengerjakan apa
+
+| Pihak | Boleh | Dilarang |
+|---|---|---|
+| Arif | Memberi arah, ACC, keputusan akhir | - |
+| Jarvis (di host Acer) | Patch, build, jalankan perintah yang sudah di-ACC, push ke GitHub | Memajukan state tanpa ACC, berinisiatif sendiri, mengubah harness/rubrik/regex agar winner lolos |
+| Auditor (Notion AI atau model pengganti) | Audit independen, hitung ulang dari nol, baca repo read-only | Menulis ke host, mempercayai laporan Jarvis |
+
+Loop resminya: Jarvis patch dan build di lokal, Arif merelay hasilnya,
+auditor mengaudit independen, dan state hanya maju setelah Arif memberi
+ACCEPT eksplisit.
+
+### 2.2 Transport, sumber kekacauan yang paling sering
+
+Jarvis tidak terhubung ke Notion. Alurnya Jarvis ke Telegram, Arif ke
+Notion, manual. Auditor tidak dapat mengirim apa pun ke Jarvis langsung.
+
+Bukti hanya lewat git, berlaku sejak 27 Jul 2026 pukul 17.10 WIB. Jarvis
+menyimpan output mentah sebagai file di docs/evidence/<YYYYMMDD>/ lalu
+menempelkan hanya sha256sum ke chat. Alasannya kanal Telegram terbukti
+memotong isi panjang, dan potongan itu berulang kali ditambal dengan
+tebakan.
+
+Repo adalah CATATAN, bukan sumber kebenaran runtime. Sinkronisasi hanya
+satu arah, dari LIVE ke repo. Jangan pernah memulihkan host dari repo
+tanpa pemeriksaan terpisah.
+
+### 2.3 Aturan keras pada host
+
+- Hanya dua combo model yang boleh dipakai: jarvis-agent dan jarvis-reason.
+  Combo ketiga bernama DailyFree sudah pensiun dan dilarang dihidupkan.
+  Isolasi dilarang dilakukan dengan membuat atau mengganti nama combo.
+- kill, pkill, dan killall DILARANG. Hanya systemctl --user stop.
+- Urutan menghentikan layanan: Gateway lalu Guardian.
+  Urutan memulihkan: Guardian lalu Gateway.
+- Dilarang git push --force, gc, prune, reset, rebase, checkout.
+- Dilarang menghapus, memotong, atau merotasi log apa pun.
+- Dilarang menyentuh ~/.hermes/memories/.
+- Dilarang menjalankan layanan di foreground.
+- Dilarang menjalankan hermes gateway run di luar systemd.
+- Dilarang mengedit ~/.hermes/cron/jobs.json secara langsung.
+- Dilarang menyentuh atau menunda hermes-artefak-backup.timer.
+- Dilarang mengubah HOSTNAME, unit file, atau guardian_router.py tanpa ACC.
+- Dilarang menghidupkan kembali cron pipeline tanpa prosedur yang disetujui.
+- Dilarang tcpdump, iptables, dan perubahan routing atau Tailscale.
+- Jangan memakai curl pada port 9119 sebagai uji kesehatan gateway.
+  Port itu milik dashboard. Uji yang benar:
+  systemctl --user is-active hermes-gateway.service
+
+### 2.4 Protokol laporan Jarvis
+
+- FAKTA TERBUKTI berarti output mentah yang ditempel apa adanya.
+- Kata terlarang: DONE, READY, LOLOS, PASS, TERKONFIRMASI, SELESAI,
+  BERHASIL, dan sinonimnya seperti TUNTAS.
+- Status tertinggi yang boleh ditulis adalah AWAITING_GATE.
+- Data tidak ada ditulis verbatim sebagai
+  DATA TIDAK TERSEDIA - TIDAK DIVERIFIKASI. Dilarang menebak.
+- Satu verdict per pesan.
+- Laporan wajib bahasa Indonesia. Output mentah tidak diterjemahkan.
+- Bila sebuah langkah gagal, berhenti dan laporkan apa adanya.
+  Dilarang memperbaiki sendiri atau melanjutkan ke langkah berikutnya.
