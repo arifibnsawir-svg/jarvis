@@ -259,3 +259,95 @@ tujuan yang tidak ada.
 
 Pemulihan wajib memakai perintah absolut yang deterministik, bukan prompt
 kepada agent.
+
+## 5. Lapis 2: Content Pipeline dan Gate, 35 persen
+
+### 5.1 Rantai produksi delapan langkah
+
+1. Pilih ide.
+2. Terapkan lensa NEURO-ARC dan A.R.S.I.
+3. Terapkan lensa strategi branding, yaitu 3 Pilar dengan bobot 60, 30, dan
+   10, tangga nilai, kompas tujuan, dan 7 pakem.
+4. Kumpulkan data grounding.
+5. Susun draft transaksional, yaitu satu anchor menjadi 5 sampai 7 post
+   Threads, satu carousel, dan satu reel.
+6. Tambahkan sauce layer. WAJIB.
+7. Lewatkan Humanizer. WAJIB dan tidak dapat dilewati.
+8. Lewatkan Content Gate, lalu masuk outbox.
+
+NEURO-ARC adalah singkatan Neural Orchestration and Relational Architecture
+dengan tiga prinsip yaitu Representasi, Perspektif, dan Sistem. A.R.S.I.
+adalah Audit, Rancang, Sistemasi, dan Iterasi.
+
+Nada suara dikunci 6 Jul 2026: kata ganti cair, anti-hype, dan minimal satu
+frasa tanda tangan seperti "Sistem bukan tools", "Arsitek bukan pengguna",
+atau "Tools berubah framework abadi". Kalibrasi rasanya casual tetapi
+kredibel.
+
+### 5.2 Content Gate tiga lapis
+
+Pos 1 memakai content_gate_rules.json bersama content_gate_pos1.py. Sifatnya
+regex deterministik dan fail-closed. Pos 1 BUKAN LLM.
+
+Pos 2 memakai content_gate_pos2.py. Di sinilah juri LLM dipanggil melalui
+combo jarvis-reason ke Guardian pada 127.0.0.1 port 20129. Keluarannya
+wajib JSON. Bila gagal, verdict jatuh ke REFUSE.
+
+Guardian adalah lapis ketiga.
+
+Delapan pemeriksaan gate: IP sakral, filter empat lapis, suara, anti-peniru
+termasuk aturan 48 jam dan uji Google lima menit, anti-halusinasi, uji orang
+asing, gerbang wawasan 3-YA, dan pertanyaan "ada take lo?".
+
+Combo jarvis-reason berisi model flagship yaitu Opus 4.8, GPT 5.5, Mistral
+Large 3, dan Qwen 3.5. Dikunci 6 Jul 2026 dan berlaku untuk SEMUA post.
+Tujuannya agar konten benar-benar berbobot.
+
+### 5.3 IP sakral yang otomatis ditolak
+
+Daftar blokir mencakup kombinasi Februari 2024 dengan angka 847 ribu, klaim
+347 prompt beserta rinciannya, angka pemulihan 12 jam menjadi 4 jam, klaim
+omset naik 340 persen, sisa 12 dari 347, kalimat tentang kolektor prompt,
+serta tokoh Riko, Citra, Adi, Dina, Ibu Sari, Pak Hendra, dan Prof. Bagus
+Mulyadi.
+
+Penegakannya lewat content_gate_rules.json versi 1.0.0 dengan tiga
+mekanisme yaitu blocked_exact_phrases, blocked_regex_patterns, dan
+blocked_characters_combination.
+
+Sudut aman yang boleh dipakai: peta bukan wilayah, User lawan Architect,
+kritik vibe-coding, AI sebagai mesin simulakrum, serta kolektor lawan koki
+tanpa menyebut angka apa pun.
+
+### 5.4 Gate 2, duduk perkaranya
+
+Gate 2 BUKAN sekadar memilih skill. Memilih skill adalah Gate 1. Gate 2
+mencakup penentuan council JSON dan juri, termasuk pemanggilan LLM, karena
+itu bagian dari filter. Inilah sebabnya Gate 2 memanggil jarvis-reason.
+
+Status: MERAH.
+
+Akar masalahnya DUA cacat pada runner, bukan pada winner.
+
+Cacat pertama, tiga literal isolasi yang dipaku di dalam kode, yaitu jalur
+log pada baris 11 dan baris 137, serta endpoint pada baris 12. Runner tidak
+membaca environment maupun argumen, sehingga tidak dapat dijalankan secara
+terisolasi.
+
+Cacat kedua, baris 315 membandingkan angka tetap 60 terhadap jumlah POST
+fisik, padahal manifest berisi 60 RECORD. Satu percobaan ulang saja sudah
+membuat hitungan menjadi 61 dari 60 dan sekaligus memunculkan satu baris
+asing palsu.
+
+Target yang sah setelah amandemen: verdict_match 30 dari 30, refuse_match
+4 dari 4, dan distribusi 15 PASS, 11 REVISE, 4 REFUSE. Fixture h4_15
+DIKUNCI pada REFUSE.
+
+Dilarang keras mengubah harness, rubrik, regex, atau fixture agar winner
+lolos. Bila winner gagal, yang gugur adalah winner, bukan alatnya.
+
+### 5.5 Yang benar-benar belum ada
+
+Jembatan dari empat sumber materi ke Jarvis belum dibangun. Repo buku,
+hasil recon, dan riset tren belum tersambung otomatis ke langkah 4 pada
+rantai produksi. Inilah alasan utama lapis ini berhenti di 35 persen.
