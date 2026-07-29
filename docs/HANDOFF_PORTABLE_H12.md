@@ -555,3 +555,34 @@ termasuk seluruh riwayat Humanizer H2 sampai H11 dan kode inti NEURO-ARC.
 Semuanya untracked sehingga tidak ikut terbit. Namun backup harian hanya
 mengarsipkan ~/.hermes, sedangkan repo berada di luar cakupan itu.
 Akibatnya berkas tersebut saat ini hanya ada pada satu mesin.
+
+## 12. Infra host
+
+Host adalah laptop Acer dengan alamat 100.122.89.6. Disk 457G dengan
+pemakaian 29 persen per 29 Jul 2026.
+
+Layanan systemd user yang berjalan: hermes-gateway tanpa port dengar,
+hermes-guardian pada 127.0.0.1 port 20129, hermes-9router-direct pada
+0.0.0.0 port 20128, dan hermes-dashboard pada 127.0.0.1 port 9119.
+
+Uji kesehatan gateway yang benar adalah
+systemctl --user is-active hermes-gateway.service. Jangan memakai curl
+pada port 9119, karena port itu milik dashboard.
+
+Backup berjalan lewat timer systemd setiap pukul 02.00 dan memakan waktu
+sekitar dua jam. Ada cron duplikat bernama Artefak automatic Hermes backup
+yang berstatus paused dengan galat timeout 120 detik. Cron itu HARUS tetap
+mati, karena jalur systemd sudah bekerja.
+
+Registry cron berisi 11 job. Perintah hermes cron list hanya menampilkan
+job aktif, sehingga gunakan hermes cron list --all agar tidak salah
+menyimpulkan ada job yang hilang.
+
+Hanya satu cron yang memanggil agent, yaitu artefak_health_alert_v12.
+Semua job lain bertanda no-agent. Cron inilah yang harus dihentikan
+sebelum jendela hening, dan cron ini terbukti menghasilkan penilaian
+berbasis model termasuk menyatakan sebuah alarm sebagai alarm palsu.
+
+Log gateway berada pada ~/.hermes/logs/9router-direct.log, berukuran
+sekitar 72 MB, tidak pernah dirotasi, dan hanya memuat cap jam tanpa
+tanggal. Jangan mencari dengan pola tanggal, gunakan rentang baris.
