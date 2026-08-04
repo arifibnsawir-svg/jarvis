@@ -3,3 +3,4 @@ __pycache__/
 *.pyo
 9r-test-*.json
 *.bak.*
+*.bak_*
